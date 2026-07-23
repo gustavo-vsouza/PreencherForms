@@ -10,12 +10,8 @@ interface GlobalInfo {
 interface Student {
   id: string;
   name: string;
-  level: string; // Always "Abaixo do básico"
-  progress: string;
-  skills: string;
-  difficulties: string;
-  interventions: string;
-  observations: string;
+  unreachedSkill: string;
+  actionPlan: string;
   isExpanded?: boolean;
 }
 
@@ -26,13 +22,6 @@ type ModalState = {
   message: string;
   onConfirm?: () => void;
 };
-
-const PROGRESS_OPTIONS = [
-  "Permaneceu no mesmo nível",
-  "Evoluiu um nível",
-  "Evoluiu dois níveis",
-  "Regrediu um nível"
-];
 
 function App() {
   const [globalInfo, setGlobalInfo] = useState<GlobalInfo>({
@@ -67,7 +56,17 @@ function App() {
     if (savedGlobal) setGlobalInfo(JSON.parse(savedGlobal));
     
     const savedStudents = localStorage.getItem('students');
-    if (savedStudents) setStudents(JSON.parse(savedStudents));
+    if (savedStudents) {
+      // Compatibility mapping to ensure new fields exist
+      const parsedStudents = JSON.parse(savedStudents).map((s: any) => ({
+        id: s.id,
+        name: s.name || '',
+        unreachedSkill: s.unreachedSkill || '',
+        actionPlan: s.actionPlan || '',
+        isExpanded: s.isExpanded !== undefined ? s.isExpanded : false
+      }));
+      setStudents(parsedStudents);
+    }
 
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'dark') {
@@ -110,12 +109,8 @@ function App() {
       { 
         id: crypto.randomUUID(), 
         name: '', 
-        level: 'Abaixo do básico',
-        progress: '',
-        skills: '',
-        difficulties: '',
-        interventions: '',
-        observations: '',
+        unreachedSkill: '',
+        actionPlan: '',
         isExpanded: true
       }
     ]);
@@ -143,12 +138,8 @@ function App() {
     const newStudents = names.map(name => ({
       id: crypto.randomUUID(),
       name,
-      level: 'Abaixo do básico',
-      progress: '',
-      skills: '',
-      difficulties: '',
-      interventions: '',
-      observations: '',
+      unreachedSkill: '',
+      actionPlan: '',
       isExpanded: false
     }));
     
@@ -187,12 +178,11 @@ function App() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number, field: string) => {
-    if (e.key === 'Tab' && index === students.length - 1 && field === 'observations') {
+    if (e.key === 'Tab' && index === students.length - 1 && field === 'actionPlan') {
       e.preventDefault();
       addStudent();
     }
   };
-
 
   const validateForm = (): boolean => {
     if (students.length === 0) {
@@ -207,7 +197,7 @@ function App() {
     
     for (let i = 0; i < students.length; i++) {
       const s = students[i];
-      if (!s.name.trim() || !s.progress || !s.skills.trim() || !s.difficulties.trim() || !s.interventions.trim() || !s.observations.trim()) {
+      if (!s.name.trim() || !s.unreachedSkill.trim() || !s.actionPlan.trim()) {
         showAlert("Dados do Aluno Incompletos", `Por favor, preencha todos os campos obrigatórios do aluno ${i + 1} (${s.name || 'Sem nome'}).`);
         return false;
       }
@@ -299,24 +289,6 @@ function App() {
       doc.text(`Nome do Estudante: ${student.name}`, margin + 3, y + 8);
       y += 20;
 
-      // Level
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.text(`5. Nível de aprendizagem:`, margin, y);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(80, 80, 80);
-      doc.text(student.level, margin, y + 6);
-      y += 14;
-
-      // Progress
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(33, 33, 33);
-      doc.text(`6. Em relação à última avaliação, os estudantes:`, margin, y);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(80, 80, 80);
-      doc.text(student.progress, margin, y + 6);
-      y += 14;
-
       // Helper for text areas
       const writeSection = (title: string, content: string) => {
         doc.setFont("helvetica", "bold");
@@ -334,10 +306,9 @@ function App() {
         y += textLines.length * 6 + 6;
       };
 
-      writeSection("7. Quais habilidades apresentaram maior evolução?", student.skills);
-      writeSection("8. Quais dificuldades ainda persistem?", student.difficulties);
-      writeSection("9. Quais intervenções serão realizadas?", student.interventions);
-      writeSection("10. Observações", student.observations);
+      writeSection("1. Qual habilidade o aluno não alcançou?", student.unreachedSkill);
+      y += 6;
+      writeSection("2. Plano de ação:", student.actionPlan);
 
       // Footer on the last page
       checkPageBreak(20);
@@ -477,7 +448,7 @@ function App() {
             
             <div className="student-card-body">
               <div className="form-group">
-                <label>4. Nome do estudante *</label>
+                <label>Nome do aluno: *</label>
                 <input
                   type="text"
                   placeholder="Nome completo do estudante"
@@ -487,75 +458,24 @@ function App() {
               </div>
 
               <div className="form-group">
-                <label>5. Nível de aprendizagem *</label>
-                <input
-                  type="text"
-                  value={student.level}
-                  disabled
-                  style={{ opacity: 0.7, cursor: 'not-allowed' }}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>6. Em relação à última avaliação, os estudantes: *</label>
-                <select 
-                  value={student.progress}
-                  onChange={(e) => handleStudentChange(student.id, 'progress', e.target.value)}
-                  style={{
-                    width: '100%',
-                    backgroundColor: 'var(--bg-input)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-main)',
-                    borderRadius: 'var(--radius-sm)',
-                    padding: '0.75rem 1rem',
-                    fontSize: '0.875rem',
-                    fontFamily: 'inherit',
-                    appearance: 'none'
-                  }}
-                >
-                  <option value="" disabled>Selecione uma opção...</option>
-                  {PROGRESS_OPTIONS.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div className="form-group">
-                <label>7. Quais habilidades apresentaram maior evolução? *</label>
+                <label>Qual habilidade o aluno não alcançou? *</label>
                 <textarea
-                  placeholder="Descreva as habilidades..."
-                  value={student.skills}
-                  onChange={(e) => handleStudentChange(student.id, 'skills', e.target.value)}
+                  placeholder="Descreva a habilidade..."
+                  value={student.unreachedSkill}
+                  onChange={(e) => handleStudentChange(student.id, 'unreachedSkill', e.target.value)}
                 />
               </div>
               
               <div className="form-group">
-                <label>8. Quais dificuldades ainda persistem? *</label>
+                <label>Plano de ação: *</label>
                 <textarea
-                  placeholder="Descreva as dificuldades..."
-                  value={student.difficulties}
-                  onChange={(e) => handleStudentChange(student.id, 'difficulties', e.target.value)}
+                  placeholder="Descreva o plano de ação... (Pressione TAB ao final para adicionar novo aluno)"
+                  value={student.actionPlan}
+                  onChange={(e) => handleStudentChange(student.id, 'actionPlan', e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(e, index, 'actionPlan')}
                 />
               </div>
 
-              <div className="form-group">
-                <label>9. Quais intervenções serão realizadas? *</label>
-                <textarea
-                  placeholder="Plano de ação e intervenções..."
-                  value={student.interventions}
-                  onChange={(e) => handleStudentChange(student.id, 'interventions', e.target.value)}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>10. Observações *</label>
-                <textarea
-                  placeholder="Observações adicionais... (Pressione TAB ao final para adicionar novo aluno)"
-                  value={student.observations}
-                  onChange={(e) => handleStudentChange(student.id, 'observations', e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(e, index, 'observations')}
-                />
-              </div>
             </div>
           </div>
         ))}
