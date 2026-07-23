@@ -26,6 +26,30 @@
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  
+  --bg-glass: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] {
+  --bg-main: #0f172a;
+  --bg-card: #1e293b;
+  --bg-card-hover: #334155;
+  --bg-input: #1e293b;
+  
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  
+  --border-color: #334155;
+  
+  --accent-primary: #38bdf8; /* Light blue for dark mode */
+  --accent-hover: #0ea5e9;
+  --accent-secondary: #34d399; /* Light green for dark mode */
+  
+  --bg-glass: rgba(30, 41, 59, 0.9);
+  
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.4);
 }
 
 * {
@@ -265,7 +289,7 @@ textarea {
   justify-content: center;
   gap: 1rem;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -302,4 +326,55 @@ textarea {
     bottom: 1rem;
     right: 1rem;
   }
+}
+
+/* Accordion and new components */
+.student-card.collapsed .student-card-body {
+  display: none;
+}
+
+.student-card-header {
+  cursor: pointer;
+  padding: 1.5rem;
+  margin: -1.5rem -1.5rem 1rem -1.5rem;
+  transition: background-color 0.2s;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.student-card.collapsed .student-card-header {
+  margin-bottom: -1.5rem;
+  border-bottom: none;
+  border-radius: var(--radius-md);
+}
+
+.student-card-header:hover {
+  background-color: var(--bg-card-hover);
+}
+
+.accordion-icon {
+  margin-left: 0.5rem;
+  transition: transform 0.2s;
+  color: var(--text-muted);
+}
+
+.student-card:not(.collapsed) .accordion-icon {
+  transform: rotate(180deg);
+}
+
+.actions-group {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.bulk-add-textarea {
+  font-family: monospace;
+  min-height: 150px;
 }

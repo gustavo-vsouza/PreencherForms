@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
 
 interface GlobalInfo {
@@ -16,6 +16,7 @@ interface Student {
   difficulties: string;
   interventions: string;
   observations: string;
+  isExpanded?: boolean;
 }
 
 const PROGRESS_OPTIONS = [
@@ -41,16 +42,52 @@ function App() {
       skills: '',
       difficulties: '',
       interventions: '',
-      observations: ''
+      observations: '',
+      isExpanded: true
     }
   ]);
+
+  const [bulkNames, setBulkNames] = useState('');
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  // Load from local storage on mount
+  useEffect(() => {
+    const savedGlobal = localStorage.getItem('globalInfo');
+    if (savedGlobal) setGlobalInfo(JSON.parse(savedGlobal));
+    
+    const savedStudents = localStorage.getItem('students');
+    if (savedStudents) setStudents(JSON.parse(savedStudents));
+
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      setIsDarkMode(true);
+      document.documentElement.setAttribute('data-theme', 'dark');
+    }
+  }, []);
+
+  // Save to local storage on change
+  useEffect(() => {
+    localStorage.setItem('globalInfo', JSON.stringify(globalInfo));
+    localStorage.setItem('students', JSON.stringify(students));
+  }, [globalInfo, students]);
+
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+    if (!isDarkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('theme', 'light');
+    }
+  };
 
   const handleGlobalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setGlobalInfo(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleStudentChange = (id: string, field: keyof Student, value: string) => {
+  const handleStudentChange = (id: string, field: keyof Student, value: string | boolean) => {
     setStudents(prev => prev.map(student => 
       student.id === id ? { ...student, [field]: value } : student
     ));
@@ -67,30 +104,88 @@ function App() {
         skills: '',
         difficulties: '',
         interventions: '',
-        observations: ''
+        observations: '',
+        isExpanded: true
       }
     ]);
   };
 
-  const removeStudent = (id: string) => {
+  const removeStudent = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (students.length > 1) {
       setStudents(prev => prev.filter(s => s.id !== id));
     }
   };
 
+  const duplicateStudent = (student: Student, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newStudent = { ...student, id: crypto.randomUUID(), name: student.name + ' (Cópia)', isExpanded: true };
+    setStudents(prev => [...prev, newStudent]);
+  };
+
+  const toggleStudentExpansion = (id: string) => {
+    setStudents(prev => prev.map(s => s.id === id ? { ...s, isExpanded: !s.isExpanded } : s));
+  };
+
+  const handleBulkAdd = () => {
+    const names = bulkNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    if (names.length === 0) return;
+    
+    const newStudents = names.map(name => ({
+      id: crypto.randomUUID(),
+      name,
+      level: 'Abaixo do básico',
+      progress: '',
+      skills: '',
+      difficulties: '',
+      interventions: '',
+      observations: '',
+      isExpanded: false
+    }));
+    
+    if (students.length === 1 && students[0].name === '' && students[0].progress === '') {
+      setStudents(newStudents);
+    } else {
+      setStudents(prev => [...prev, ...newStudents]);
+    }
+    setBulkNames('');
+  };
+
+  const startNewClass = () => {
+    if (confirm('Isso apagará todos os alunos e informações da turma. O nome do professor será mantido. Tem certeza?')) {
+      setGlobalInfo(prev => ({ ...prev, classRoom: '', subject: '' }));
+      setStudents([{ 
+        id: crypto.randomUUID(), 
+        name: '', 
+        level: 'Abaixo do básico',
+        progress: '',
+        skills: '',
+        difficulties: '',
+        interventions: '',
+        observations: '',
+        isExpanded: true
+      }]);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent, index: number, field: string) => {
+    if (e.key === 'Tab' && index === students.length - 1 && field === 'observations') {
+      e.preventDefault();
+      addStudent();
+    }
+  };
+
 
   const validateForm = (): boolean => {
-    // Check global
     if (!globalInfo.teacherName.trim() || !globalInfo.classRoom.trim() || !globalInfo.subject.trim()) {
       alert("Por favor, preencha todos os dados globais (Professor, Turma, Disciplina).");
       return false;
     }
     
-    // Check students
     for (let i = 0; i < students.length; i++) {
       const s = students[i];
       if (!s.name.trim() || !s.progress || !s.skills.trim() || !s.difficulties.trim() || !s.interventions.trim() || !s.observations.trim()) {
-        alert(`Por favor, preencha todos os campos obrigatórios do aluno ${i + 1}.`);
+        alert(`Por favor, preencha todos os campos obrigatórios do aluno ${i + 1} (${s.name || 'Sem nome'}).`);
         return false;
       }
     }
@@ -111,7 +206,6 @@ function App() {
       const pageWidth = 210;
       const contentWidth = pageWidth - margin * 2;
 
-      // Helper function to check page boundaries and add new page if needed
       const checkPageBreak = (neededHeight: number) => {
         if (y + neededHeight > 280) {
           doc.addPage();
@@ -236,13 +330,28 @@ function App() {
 
   return (
     <div className="container">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', paddingBottom: '1rem' }}>
+        <button className="btn btn-outline" onClick={toggleTheme}>
+          {isDarkMode ? '☀️ Modo Claro' : '🌙 Modo Escuro'}
+        </button>
+      </div>
+      
       <header className="header">
         <h1>E. E. Prefeito Antônio Prátici</h1>
         <p>Sistema de Gerenciamento e Emissão de Relatórios Individuais de Aprendizagem.</p>
+        <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', opacity: 0.8 }}>Autosalvamento ativo. Seus dados estão seguros neste navegador.</p>
       </header>
 
+      <section className="section-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h2 style={{ marginBottom: 0 }}>Informações Globais</h2>
+        </div>
+        <button className="btn btn-danger" onClick={startNewClass}>
+          ⟲ Iniciar Nova Turma
+        </button>
+      </section>
+
       <section className="section-panel">
-        <h2>Informações Globais</h2>
         <div className="form-row">
           <div className="form-group">
             <label htmlFor="teacherName">1. Professor(a) *</label>
@@ -280,104 +389,135 @@ function App() {
         </div>
       </section>
 
+      <section className="section-panel">
+        <h2>Adicionar Nomes em Lote</h2>
+        <p style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>Cole uma lista de nomes de alunos (um por linha) para gerar os formulários automaticamente.</p>
+        <textarea 
+          className="bulk-add-textarea" 
+          placeholder="Maria da Silva&#10;João de Souza&#10;Ana Beatriz"
+          value={bulkNames}
+          onChange={(e) => setBulkNames(e.target.value)}
+        />
+        <button className="btn btn-outline" style={{ marginTop: '0.5rem' }} onClick={handleBulkAdd}>
+          + Adicionar Lista
+        </button>
+      </section>
+
       <section>
         <h2>Avaliações Individuais ({students.length} alunos)</h2>
         {students.map((student, index) => (
-          <div key={student.id} className="student-card">
-            <div className="student-card-header">
+          <div key={student.id} className={`student-card ${student.isExpanded ? '' : 'collapsed'}`}>
+            <div className="student-card-header" onClick={() => toggleStudentExpansion(student.id)}>
               <h3>
                 <span className="student-card-number">{index + 1}</span>
-                Dados do Aluno
+                {student.name || 'Aluno sem nome'}
               </h3>
-              {students.length > 1 && (
+              <div className="actions-group">
                 <button 
-                  className="btn btn-danger"
-                  onClick={() => removeStudent(student.id)}
-                  title="Remover aluno"
+                  className="btn btn-outline"
+                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  onClick={(e) => duplicateStudent(student, e)}
+                  title="Duplicar informações para um novo aluno"
                 >
-                  ✕ Remover
+                  ⎘ Clonar
                 </button>
-              )}
+                {students.length > 1 && (
+                  <button 
+                    className="btn btn-danger"
+                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                    onClick={(e) => removeStudent(student.id, e)}
+                    title="Remover aluno"
+                  >
+                    ✕ Remover
+                  </button>
+                )}
+                <svg className="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
             </div>
             
-            <div className="form-group">
-              <label>4. Nome do estudante *</label>
-              <input
-                type="text"
-                placeholder="Nome completo do estudante"
-                value={student.name}
-                onChange={(e) => handleStudentChange(student.id, 'name', e.target.value)}
-              />
-            </div>
+            <div className="student-card-body">
+              <div className="form-group">
+                <label>4. Nome do estudante *</label>
+                <input
+                  type="text"
+                  placeholder="Nome completo do estudante"
+                  value={student.name}
+                  onChange={(e) => handleStudentChange(student.id, 'name', e.target.value)}
+                />
+              </div>
 
-            <div className="form-group">
-              <label>5. Nível de aprendizagem *</label>
-              <input
-                type="text"
-                value={student.level}
-                disabled
-                style={{ opacity: 0.7, cursor: 'not-allowed' }}
-              />
-            </div>
+              <div className="form-group">
+                <label>5. Nível de aprendizagem *</label>
+                <input
+                  type="text"
+                  value={student.level}
+                  disabled
+                  style={{ opacity: 0.7, cursor: 'not-allowed' }}
+                />
+              </div>
 
-            <div className="form-group">
-              <label>6. Em relação à última avaliação, os estudantes: *</label>
-              <select 
-                value={student.progress}
-                onChange={(e) => handleStudentChange(student.id, 'progress', e.target.value)}
-                style={{
-                  width: '100%',
-                  backgroundColor: 'var(--bg-input)',
-                  border: '1px solid var(--border-color)',
-                  color: 'var(--text-main)',
-                  borderRadius: 'var(--radius-sm)',
-                  padding: '0.75rem 1rem',
-                  fontSize: '0.875rem',
-                  fontFamily: 'inherit',
-                  appearance: 'none'
-                }}
-              >
-                <option value="" disabled>Selecione uma opção...</option>
-                {PROGRESS_OPTIONS.map(opt => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="form-group">
-              <label>7. Quais habilidades apresentaram maior evolução? *</label>
-              <textarea
-                placeholder="Descreva as habilidades..."
-                value={student.skills}
-                onChange={(e) => handleStudentChange(student.id, 'skills', e.target.value)}
-              />
-            </div>
-            
-            <div className="form-group">
-              <label>8. Quais dificuldades ainda persistem? *</label>
-              <textarea
-                placeholder="Descreva as dificuldades..."
-                value={student.difficulties}
-                onChange={(e) => handleStudentChange(student.id, 'difficulties', e.target.value)}
-              />
-            </div>
+              <div className="form-group">
+                <label>6. Em relação à última avaliação, os estudantes: *</label>
+                <select 
+                  value={student.progress}
+                  onChange={(e) => handleStudentChange(student.id, 'progress', e.target.value)}
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'var(--bg-input)',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-main)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.75rem 1rem',
+                    fontSize: '0.875rem',
+                    fontFamily: 'inherit',
+                    appearance: 'none'
+                  }}
+                >
+                  <option value="" disabled>Selecione uma opção...</option>
+                  {PROGRESS_OPTIONS.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>7. Quais habilidades apresentaram maior evolução? *</label>
+                <textarea
+                  placeholder="Descreva as habilidades..."
+                  value={student.skills}
+                  onChange={(e) => handleStudentChange(student.id, 'skills', e.target.value)}
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>8. Quais dificuldades ainda persistem? *</label>
+                <textarea
+                  placeholder="Descreva as dificuldades..."
+                  value={student.difficulties}
+                  onChange={(e) => handleStudentChange(student.id, 'difficulties', e.target.value)}
+                />
+              </div>
 
-            <div className="form-group">
-              <label>9. Quais intervenções serão realizadas? *</label>
-              <textarea
-                placeholder="Plano de ação e intervenções..."
-                value={student.interventions}
-                onChange={(e) => handleStudentChange(student.id, 'interventions', e.target.value)}
-              />
-            </div>
+              <div className="form-group">
+                <label>9. Quais intervenções serão realizadas? *</label>
+                <textarea
+                  placeholder="Plano de ação e intervenções..."
+                  value={student.interventions}
+                  onChange={(e) => handleStudentChange(student.id, 'interventions', e.target.value)}
+                />
+              </div>
 
-            <div className="form-group">
-              <label>10. Observações *</label>
-              <textarea
-                placeholder="Observações adicionais..."
-                value={student.observations}
-                onChange={(e) => handleStudentChange(student.id, 'observations', e.target.value)}
-              />
+              <div className="form-group">
+                <label>10. Observações *</label>
+                <textarea
+                  placeholder="Observações adicionais... (Pressione TAB ao final para adicionar novo aluno)"
+                  value={student.observations}
+                  onChange={(e) => handleStudentChange(student.id, 'observations', e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(e, index, 'observations')}
+                />
+              </div>
             </div>
           </div>
         ))}
