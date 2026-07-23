@@ -19,6 +19,14 @@ interface Student {
   isExpanded?: boolean;
 }
 
+type ModalState = {
+  isOpen: boolean;
+  type: 'alert' | 'confirm';
+  title: string;
+  message: string;
+  onConfirm?: () => void;
+};
+
 const PROGRESS_OPTIONS = [
   "Permaneceu no mesmo nível",
   "Evoluiu um nível",
@@ -38,6 +46,20 @@ function App() {
   const [bulkNames, setBulkNames] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [hasGeneratedReports, setHasGeneratedReports] = useState(false);
+  
+  const [modal, setModal] = useState<ModalState>({ isOpen: false, type: 'alert', title: '', message: '' });
+
+  const showAlert = (title: string, message: string) => {
+    setModal({ isOpen: true, type: 'alert', title, message });
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setModal({ isOpen: true, type: 'confirm', title, message, onConfirm });
+  };
+
+  const closeModal = () => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  };
 
   // Load from local storage on mount
   useEffect(() => {
@@ -142,18 +164,25 @@ function App() {
   const startNewClass = () => {
     if (students.length === 0) return;
 
+    const performClear = () => {
+      setStudents([]);
+      setHasGeneratedReports(false);
+      closeModal();
+    };
+
     if (!hasGeneratedReports) {
-      if (!confirm('⚠️ ATENÇÃO: Você ainda não gerou (baixou) os relatórios desta turma!\n\nTem certeza que deseja apagar todos os alunos e iniciar uma nova turma?')) {
-        return;
-      }
+      showConfirm(
+        '⚠️ Relatórios Não Gerados',
+        'Você ainda não gerou (baixou) os relatórios desta turma!\n\nTem certeza que deseja apagar todos os alunos e iniciar uma nova turma?',
+        performClear
+      );
     } else {
-      if (!confirm('Isso excluirá todos os alunos da lista atual. O nome do professor e os dados da turma serão mantidos. Tem certeza?')) {
-        return;
-      }
+      showConfirm(
+        'Iniciar Nova Turma',
+        'Isso excluirá todos os alunos da lista atual. O nome do professor e os dados da turma serão mantidos. Tem certeza?',
+        performClear
+      );
     }
-    
-    setStudents([]);
-    setHasGeneratedReports(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number, field: string) => {
@@ -166,19 +195,19 @@ function App() {
 
   const validateForm = (): boolean => {
     if (students.length === 0) {
-      alert("Por favor, adicione pelo menos um aluno antes de gerar os relatórios.");
+      showAlert("Atenção", "Por favor, adicione pelo menos um aluno antes de gerar os relatórios.");
       return false;
     }
 
     if (!globalInfo.teacherName.trim() || !globalInfo.classRoom.trim() || !globalInfo.subject.trim()) {
-      alert("Por favor, preencha todos os dados globais (Professor, Turma, Disciplina).");
+      showAlert("Dados Globais Incompletos", "Por favor, preencha todos os dados globais (Professor, Turma, Disciplina).");
       return false;
     }
     
     for (let i = 0; i < students.length; i++) {
       const s = students[i];
       if (!s.name.trim() || !s.progress || !s.skills.trim() || !s.difficulties.trim() || !s.interventions.trim() || !s.observations.trim()) {
-        alert(`Por favor, preencha todos os campos obrigatórios do aluno ${i + 1} (${s.name || 'Sem nome'}).`);
+        showAlert("Dados do Aluno Incompletos", `Por favor, preencha todos os campos obrigatórios do aluno ${i + 1} (${s.name || 'Sem nome'}).`);
         return false;
       }
     }
@@ -551,6 +580,34 @@ function App() {
           Gerar {students.length} Relatórios
         </button>
       </div>
+
+      {modal.isOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 className="modal-title">{modal.title}</h3>
+            <div className="modal-message">{modal.message}</div>
+            <div className="modal-actions">
+              {modal.type === 'confirm' && (
+                <button className="btn btn-outline" onClick={closeModal}>
+                  Cancelar
+                </button>
+              )}
+              <button 
+                className={modal.type === 'confirm' ? 'btn btn-danger' : 'btn btn-primary'} 
+                onClick={() => {
+                  if (modal.type === 'confirm' && modal.onConfirm) {
+                    modal.onConfirm();
+                  } else {
+                    closeModal();
+                  }
+                }}
+              >
+                {modal.type === 'confirm' ? 'Confirmar' : 'Entendi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
