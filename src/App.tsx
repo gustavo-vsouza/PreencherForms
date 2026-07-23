@@ -166,6 +166,7 @@ function App() {
 
     const performClear = () => {
       setStudents([]);
+      setGlobalInfo(prev => ({ ...prev, classRoom: '' }));
       setHasGeneratedReports(false);
       closeModal();
     };
@@ -179,7 +180,7 @@ function App() {
     } else {
       showConfirm(
         'Iniciar Nova Turma',
-        'Isso excluirá todos os alunos da lista atual. O nome do professor e os dados da turma serão mantidos. Tem certeza?',
+        'Isso excluirá todos os alunos da lista atual e apagará o nome da turma. O nome do professor e a disciplina serão mantidos. Tem certeza?',
         performClear
       );
     }
