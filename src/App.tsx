@@ -37,6 +37,7 @@ function App() {
 
   const [bulkNames, setBulkNames] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [hasGeneratedReports, setHasGeneratedReports] = useState(false);
 
   // Load from local storage on mount
   useEffect(() => {
@@ -139,9 +140,20 @@ function App() {
   };
 
   const startNewClass = () => {
-    if (confirm('Isso excluirá todos os alunos da lista atual. O nome do professor e os dados da turma serão mantidos. Tem certeza?')) {
-      setStudents([]);
+    if (students.length === 0) return;
+
+    if (!hasGeneratedReports) {
+      if (!confirm('⚠️ ATENÇÃO: Você ainda não gerou (baixou) os relatórios desta turma!\n\nTem certeza que deseja apagar todos os alunos e iniciar uma nova turma?')) {
+        return;
+      }
+    } else {
+      if (!confirm('Isso excluirá todos os alunos da lista atual. O nome do professor e os dados da turma serão mantidos. Tem certeza?')) {
+        return;
+      }
     }
+    
+    setStudents([]);
+    setHasGeneratedReports(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, index: number, field: string) => {
@@ -322,6 +334,8 @@ function App() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    
+    setHasGeneratedReports(true);
   };
 
   return (
