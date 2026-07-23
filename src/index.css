@@ -6,10 +6,10 @@
   --bg-card-hover: #f1f5f9;
   --bg-input: #ffffff;
   
-  --text-main: #1e293b;
-  --text-muted: #64748b;
+  --text-main: #0f172a;
+  --text-muted: #334155;
   
-  --border-color: #e2e8f0;
+  --border-color: #94a3b8;
   
   /* Cores Institucionais - Azul e Verde */
   --accent-primary: #0284c7; /* Azul Escola */
@@ -36,10 +36,10 @@
   --bg-card-hover: #334155;
   --bg-input: #1e293b;
   
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
+  --text-main: #ffffff;
+  --text-muted: #cbd5e1;
   
-  --border-color: #334155;
+  --border-color: #64748b;
   
   --accent-primary: #38bdf8; /* Light blue for dark mode */
   --accent-hover: #0ea5e9;
@@ -60,6 +60,7 @@
 
 body {
   font-family: 'Inter', sans-serif;
+  font-size: 18px; /* Melhoria de acessibilidade */
   background-color: var(--bg-main);
   color: var(--text-main);
   line-height: 1.5;
@@ -138,7 +139,7 @@ p {
 
 label {
   display: block;
-  font-size: 0.875rem;
+  font-size: 1rem; /* Melhoria de legibilidade */
   font-weight: 500;
   margin-bottom: 0.5rem;
   color: var(--text-main);
@@ -151,7 +152,7 @@ input, textarea {
   color: var(--text-main);
   border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  font-size: 1rem; /* Melhoria de legibilidade */
   font-family: inherit;
   transition: all 0.2s ease;
 }

@@ -350,7 +350,7 @@ function App() {
       <header className="header">
         <h1>E. E. Prefeito Antônio Prátici</h1>
         <p>Sistema de Gerenciamento e Emissão de Relatórios Individuais de Aprendizagem.</p>
-        <p style={{ fontSize: '0.8rem', marginTop: '0.5rem', opacity: 0.8 }}>Autosalvamento ativo. Seus dados estão seguros neste navegador.</p>
+        <p style={{ fontSize: '1rem', marginTop: '0.5rem', color: 'var(--text-main)' }}>Autosalvamento ativo. Seus dados estão seguros neste navegador.</p>
       </header>
 
       <section className="section-panel" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -402,7 +402,7 @@ function App() {
 
       <section className="section-panel">
         <h2>Adicionar Nomes em Lote</h2>
-        <p style={{ fontSize: '0.875rem', marginBottom: '1rem' }}>Cole uma lista de nomes de alunos (um por linha) para gerar os formulários automaticamente.</p>
+        <p style={{ fontSize: '1rem', marginBottom: '1rem' }}>Cole uma lista de nomes de alunos (um por linha) para gerar os formulários automaticamente.</p>
         <textarea 
           className="bulk-add-textarea" 
           placeholder="Maria da Silva&#10;João de Souza&#10;Ana Beatriz"
@@ -426,7 +426,7 @@ function App() {
               <div className="actions-group">
                 <button 
                   className="btn btn-outline"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}
                   onClick={(e) => duplicateStudent(student, e)}
                   title="Duplicar informações para um novo aluno"
                 >
@@ -434,7 +434,7 @@ function App() {
                 </button>
                 <button 
                   className="btn btn-danger"
-                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  style={{ padding: '0.5rem 0.75rem', fontSize: '0.9rem' }}
                   onClick={(e) => removeStudent(student.id, e)}
                   title="Remover aluno"
                 >
