@@ -33,19 +33,7 @@ function App() {
     subject: '',
   });
 
-  const [students, setStudents] = useState<Student[]>([
-    { 
-      id: crypto.randomUUID(), 
-      name: '', 
-      level: 'Abaixo do básico',
-      progress: '',
-      skills: '',
-      difficulties: '',
-      interventions: '',
-      observations: '',
-      isExpanded: true
-    }
-  ]);
+  const [students, setStudents] = useState<Student[]>([]);
 
   const [bulkNames, setBulkNames] = useState('');
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -112,9 +100,7 @@ function App() {
 
   const removeStudent = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (students.length > 1) {
-      setStudents(prev => prev.filter(s => s.id !== id));
-    }
+    setStudents(prev => prev.filter(s => s.id !== id));
   };
 
   const duplicateStudent = (student: Student, e: React.MouseEvent) => {
@@ -143,7 +129,8 @@ function App() {
       isExpanded: false
     }));
     
-    if (students.length === 1 && students[0].name === '' && students[0].progress === '') {
+    // if the list is empty, just replace it
+    if (students.length === 0) {
       setStudents(newStudents);
     } else {
       setStudents(prev => [...prev, ...newStudents]);
@@ -152,19 +139,8 @@ function App() {
   };
 
   const startNewClass = () => {
-    if (confirm('Isso apagará todos os alunos e informações da turma. O nome do professor será mantido. Tem certeza?')) {
-      setGlobalInfo(prev => ({ ...prev, classRoom: '', subject: '' }));
-      setStudents([{ 
-        id: crypto.randomUUID(), 
-        name: '', 
-        level: 'Abaixo do básico',
-        progress: '',
-        skills: '',
-        difficulties: '',
-        interventions: '',
-        observations: '',
-        isExpanded: true
-      }]);
+    if (confirm('Isso excluirá todos os alunos da lista atual. O nome do professor e os dados da turma serão mantidos. Tem certeza?')) {
+      setStudents([]);
     }
   };
 
@@ -177,6 +153,11 @@ function App() {
 
 
   const validateForm = (): boolean => {
+    if (students.length === 0) {
+      alert("Por favor, adicione pelo menos um aluno antes de gerar os relatórios.");
+      return false;
+    }
+
     if (!globalInfo.teacherName.trim() || !globalInfo.classRoom.trim() || !globalInfo.subject.trim()) {
       alert("Por favor, preencha todos os dados globais (Professor, Turma, Disciplina).");
       return false;
@@ -196,6 +177,11 @@ function App() {
     if (!validateForm()) return;
 
     const { jsPDF } = await import('jspdf');
+    const JSZip = (await import('jszip')).default;
+
+    const zip = new JSZip();
+    const folderName = `${globalInfo.subject || 'Materia'} - ${globalInfo.classRoom || 'Turma'}`;
+    const folder = zip.folder(folderName);
 
     for (let i = 0; i < students.length; i++) {
       const student = students[i];
@@ -320,12 +306,22 @@ function App() {
       doc.setTextColor(100, 100, 100);
       doc.text(`Documento gerado em ${dateStr} - E. E. Prefeito Antônio Prátici`, margin, 285);
 
-      // Save PDF
+      // Save PDF to ZIP folder
       const safeName = student.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      doc.save(`relatorio_${safeName}.pdf`);
-
-      await new Promise(resolve => setTimeout(resolve, 300));
+      const pdfArrayBuffer = doc.output('arraybuffer');
+      folder?.file(`relatorio_${safeName}.pdf`, pdfArrayBuffer);
     }
+    
+    // Generate ZIP and trigger download
+    const content = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(content);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${folderName}.zip`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -421,16 +417,14 @@ function App() {
                 >
                   ⎘ Clonar
                 </button>
-                {students.length > 1 && (
-                  <button 
-                    className="btn btn-danger"
-                    style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
-                    onClick={(e) => removeStudent(student.id, e)}
-                    title="Remover aluno"
-                  >
-                    ✕ Remover
-                  </button>
-                )}
+                <button 
+                  className="btn btn-danger"
+                  style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
+                  onClick={(e) => removeStudent(student.id, e)}
+                  title="Remover aluno"
+                >
+                  ✕ Remover
+                </button>
                 <svg className="accordion-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
@@ -522,7 +516,13 @@ function App() {
           </div>
         ))}
         
-        <button className="btn btn-block btn-add" onClick={addStudent}>
+        {students.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-muted)' }}>
+            Nenhum aluno adicionado ainda. Adicione alunos manualmente ou cole uma lista acima.
+          </div>
+        )}
+        
+        <button className="btn btn-block btn-add" onClick={addStudent} style={{ marginTop: '1rem' }}>
           + Adicionar Novo Aluno
         </button>
       </section>
