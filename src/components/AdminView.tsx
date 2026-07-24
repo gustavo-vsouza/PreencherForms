@@ -95,7 +95,9 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const fetchClasses = async (schoolCode: string) => {
     try {
       const snap = await getDocs(query(collection(db, 'uploaded_classes'), where('schoolCode', '==', schoolCode)));
-      setUploadedClasses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const classes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      classes.sort((a: any, b: any) => (a.classRoom || '').localeCompare(b.classRoom || ''));
+      setUploadedClasses(classes);
     } catch (e) { console.error(e); }
   };
 

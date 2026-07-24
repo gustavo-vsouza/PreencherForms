@@ -60,7 +60,9 @@ export function AdminSettings({ onClose, schools, refreshData }: { onClose: () =
     try {
       const q = query(collection(db, 'uploaded_classes'), where('schoolCode', '==', selectedSchoolTurmas));
       const snap = await getDocs(q);
-      setUploadedClasses(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const classes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      classes.sort((a: any, b: any) => (a.classRoom || '').localeCompare(b.classRoom || ''));
+      setUploadedClasses(classes);
     } catch (e) {
       console.error(e);
     }

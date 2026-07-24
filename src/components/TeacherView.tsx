@@ -62,7 +62,9 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
       try {
         const qClasses = query(collection(db, 'uploaded_classes'), where('schoolCode', '==', schoolCode));
         const snapClasses = await getDocs(qClasses);
-        setUploadedClasses(snapClasses.docs.map(doc => doc.data()));
+        const fetchedClasses = snapClasses.docs.map(doc => doc.data());
+        fetchedClasses.sort((a, b) => (a.classRoom || '').localeCompare(b.classRoom || ''));
+        setUploadedClasses(fetchedClasses);
 
         const qSkills = query(collection(db, 'skills_data'), where('schoolCode', '==', schoolCode));
         const snapSkills = await getDocs(qSkills);
@@ -365,7 +367,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
       </header>
 
       {/* Global Info */}
-      <section className="stagger-fade bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-8 mb-8 shadow-sm">
+      <section className="stagger-fade relative z-50 bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-8 mb-8 shadow-sm">
         <h2 className="text-xl font-bold mb-6 text-slate-800 dark:text-white flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm font-bold">1</div>
           Informações Globais
@@ -418,7 +420,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
       </section>
 
       {/* Students Section */}
-      <section className="stagger-fade bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-8 shadow-sm">
+      <section className="stagger-fade relative z-40 bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-8 shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 border-b border-slate-100 dark:border-white/5 pb-4">
           <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 flex items-center justify-center text-sm font-bold">2</div>
@@ -444,9 +446,9 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
             const isOpen = expandedIndex === originalIndex;
             
             return (
-              <div key={originalIndex} className={`border ${isOpen ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-white/30'} rounded-2xl overflow-hidden transition-all duration-300 bg-slate-50 dark:bg-black/20`}>
+              <div key={originalIndex} className={`relative border ${isOpen ? 'border-blue-500 ring-2 ring-blue-500/20 z-50 overflow-visible' : 'border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-white/30 z-10 overflow-hidden'} rounded-2xl transition-all duration-300 bg-slate-50 dark:bg-black/20`}>
                 <div 
-                  className={`flex justify-between items-center p-4 md:p-5 cursor-pointer select-none transition-colors ${isOpen ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}
+                  className={`flex justify-between items-center p-4 md:p-5 cursor-pointer select-none transition-colors ${isOpen ? 'bg-blue-50/50 dark:bg-blue-900/20 rounded-t-2xl' : 'rounded-2xl'}`}
                   onClick={() => toggleAccordion(originalIndex)}
                 >
                   <div className="flex items-center gap-4">
@@ -478,8 +480,8 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
                   </div>
                 </div>
                 
-                <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[800px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className="p-5 md:p-6 bg-white dark:bg-[#1e1b2e] border-t border-slate-100 dark:border-white/5 flex flex-col gap-5">
+                <div className={`transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[1000px] opacity-100 overflow-visible' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                  <div className="p-5 md:p-6 bg-white dark:bg-[#1e1b2e] border-t border-slate-100 dark:border-white/5 flex flex-col gap-5 rounded-b-2xl">
                     <div className="flex flex-col gap-2">
                       <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Nome do aluno</label>
                       <input 
