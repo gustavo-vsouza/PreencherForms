@@ -118,7 +118,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
     } catch (error) { alert("Erro ao adicionar escola."); }
   };
 
-  const handleDeleteSchool = (schoolId: string, schoolCode: string) => {
+  const handleDeleteSchool = (schoolId: string) => {
     confirmAction(
       'Excluir Escola',
       `Atenção! Excluir a escola removerá TODAS as turmas e relatórios associados a ela. Deseja realmente continuar?`,
@@ -595,7 +595,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                         <strong className="text-slate-800 dark:text-white text-lg">{school.name}</strong>
                         <div className="text-sm text-slate-500 dark:text-slate-400 mt-1 font-medium">Código: <span className="text-blue-600 dark:text-blue-400">{school.code}</span></div>
                       </div>
-                      <button onClick={() => handleDeleteSchool(school.id, school.code)} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Excluir">
+                      <button onClick={() => handleDeleteSchool(school.id)} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Excluir">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                       </button>
                     </div>
