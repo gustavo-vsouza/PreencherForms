@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, addDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, updateDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import * as XLSX from 'xlsx';
 import gsap from 'gsap';
@@ -42,12 +42,8 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const [isUploadingSkills, setIsUploadingSkills] = useState(false);
 
   // Modal Confirm
-  const [confirmDialog, setConfirmDialog] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-  }>({ isOpen: false, title: '', message: '', onConfirm: () => {} });
+  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
+  const [editClassDialog, setEditClassDialog] = useState<{ isOpen: boolean; id: string; classRoom: string; grade: string; period: string }>({ isOpen: false, id: '', classRoom: '', grade: '', period: '' });
 
   const confirmAction = (title: string, message: string, onConfirm: () => void) => {
     setConfirmDialog({ isOpen: true, title, message, onConfirm });
@@ -217,6 +213,21 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
         } catch (e) { alert("Erro ao deletar."); }
       }
     );
+  };
+
+  const handleUpdateClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await updateDoc(doc(db, 'uploaded_classes', editClassDialog.id), {
+        classRoom: editClassDialog.classRoom.trim(),
+        grade: editClassDialog.grade.trim(),
+        period: editClassDialog.period.trim()
+      });
+      fetchClasses(selectedSchoolTurmas);
+      setEditClassDialog({ ...editClassDialog, isOpen: false });
+    } catch (e) {
+      alert("Erro ao atualizar turma.");
+    }
   };
 
   // --- Funções CRUD Habilidades ---
@@ -696,9 +707,14 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                               <span>{c.students?.length} alunos</span>
                             </div>
                           </div>
-                          <button onClick={() => handleDeleteClass(c.id, c.classRoom)} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Excluir">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                          </button>
+                          <div className="flex gap-2">
+                            <button onClick={() => setEditClassDialog({ isOpen: true, id: c.id, classRoom: c.classRoom, grade: c.grade, period: c.period || '' })} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Editar">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                            </button>
+                            <button onClick={() => handleDeleteClass(c.id, c.classRoom)} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Excluir">
+                              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -802,6 +818,53 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                 className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold shadow-lg shadow-red-500/30 transition-colors w-full md:w-auto"
               >
                 Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Class Modal */}
+      {editClassDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md transition-all duration-300">
+          <div className="bg-white dark:bg-[#1e1b2e] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-white/10 transform scale-100 opacity-100 transition-all duration-300">
+            <div className="p-6 md:p-8">
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-6">Editar Turma</h3>
+              <form id="editClassForm" onSubmit={handleUpdateClass} className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Nome da Turma</label>
+                  <input type="text" required value={editClassDialog.classRoom} onChange={e => setEditClassDialog({...editClassDialog, classRoom: e.target.value})} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Série/Ano</label>
+                  <input type="text" required value={editClassDialog.grade} onChange={e => setEditClassDialog({...editClassDialog, grade: e.target.value})} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Período</label>
+                  <select required value={editClassDialog.period} onChange={e => setEditClassDialog({...editClassDialog, period: e.target.value})} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors">
+                    <option value="">Selecione...</option>
+                    <option value="Manhã">Manhã</option>
+                    <option value="Tarde">Tarde</option>
+                    <option value="Noite">Noite</option>
+                    <option value="Integral">Integral</option>
+                  </select>
+                </div>
+              </form>
+            </div>
+            <div className="p-4 md:p-6 bg-slate-50 dark:bg-black/20 border-t border-slate-100 dark:border-white/5 flex flex-col-reverse md:flex-row justify-end gap-3">
+              <button 
+                type="button"
+                onClick={() => setEditClassDialog({ ...editClassDialog, isOpen: false })} 
+                className="px-6 py-3 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors w-full md:w-auto"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit"
+                form="editClassForm"
+                className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-colors w-full md:w-auto"
+              >
+                Salvar Alterações
               </button>
             </div>
           </div>
