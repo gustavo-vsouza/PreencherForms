@@ -10,36 +10,36 @@ export function LoginView({ onLogin }: LoginViewProps) {
   const [code, setCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   useGSAP(() => {
     const tl = gsap.timeline();
-    
-    tl.fromTo('.hero-text', 
-      { opacity: 0, y: 50 }, 
+
+    tl.fromTo('.hero-text',
+      { opacity: 0, y: 50 },
       { opacity: 1, y: 0, duration: 0.8, stagger: 0.2, ease: 'power3.out' }
     )
-    .fromTo('.login-box',
-      { opacity: 0, scale: 0.95 },
-      { opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(1.5)' },
-      "-=0.4"
-    )
-    .fromTo('.gradient-orb',
-      { opacity: 0, scale: 0.5 },
-      { opacity: 0.6, scale: 1, duration: 1.5, stagger: 0.3, ease: 'power2.out' },
-      0
-    );
+      .fromTo('.login-box',
+        { opacity: 0, scale: 0.95 },
+        { opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(1.5)' },
+        "-=0.4"
+      )
+      .fromTo('.gradient-orb',
+        { opacity: 0, scale: 0.5 },
+        { opacity: 0.6, scale: 1, duration: 1.5, stagger: 0.3, ease: 'power2.out' },
+        0
+      );
   }, { scope: containerRef });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!code.trim()) return;
-    
+
     setIsLoading(true);
     const success = await onLogin(code.trim().toUpperCase());
     setIsLoading(false);
-    
+
     if (success === false) {
       setErrorMsg('Código inválido ou escola não encontrada.');
     }
@@ -52,7 +52,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
         <div className="gradient-orb absolute -top-1/4 -right-1/4 w-3/4 h-3/4 bg-blue-200 dark:bg-blue-600 rounded-full blur-[120px] mix-blend-multiply dark:mix-blend-screen opacity-0" />
         <div className="gradient-orb absolute -bottom-1/4 -left-1/4 w-2/3 h-2/3 bg-indigo-200 dark:bg-indigo-700 rounded-full blur-[100px] mix-blend-multiply dark:mix-blend-screen opacity-0" />
       </div>
-      
+
       {/* Navbar (Mocked to match reference) */}
       <nav className="absolute top-0 w-full flex justify-between items-center px-8 py-6 z-20">
         <div className="flex items-center gap-2">
@@ -65,7 +65,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
         {/* Hero Section */}
         <div className="flex-1 text-center lg:text-left">
           <h1 className="hero-text font-display text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-blue-600 dark:from-white dark:to-blue-200" style={{ fontFamily: 'var(--font-display)' }}>
-            Connect. <br/> Create. <br/> Contribute.
+            Acesse. <br /> Preencha. <br /> Finalize.
           </h1>
           <p className="hero-text text-lg md:text-xl text-slate-600 dark:text-blue-100/70 font-medium tracking-wide uppercase">
             Acesso ao sistema de gestão escolar
@@ -76,7 +76,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
         <div className="login-box w-full max-w-md bg-white/80 dark:bg-[#1e1b2e]/60 backdrop-blur-xl border border-white/40 dark:border-white/10 rounded-3xl p-8 shadow-2xl">
           <h2 className="text-2xl font-semibold mb-2 text-slate-800 dark:text-white">Bem-vindo de volta</h2>
           <p className="text-slate-500 dark:text-slate-400 mb-8">Digite o código da sua escola para continuar.</p>
-          
+
           <form onSubmit={handleSubmit} className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <label htmlFor="schoolCode" className="text-sm font-semibold tracking-wide uppercase text-slate-700 dark:text-slate-300">
@@ -92,9 +92,9 @@ export function LoginView({ onLogin }: LoginViewProps) {
                 className="bg-white dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all font-mono text-slate-800 dark:text-white placeholder:text-slate-400"
               />
             </div>
-            
-            <button 
-              type="submit" 
+
+            <button
+              type="submit"
               disabled={isLoading}
               className="mt-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold py-3 px-6 rounded-xl transition-all transform hover:scale-[1.02] active:scale-95 shadow-lg shadow-blue-500/30 flex items-center justify-center"
             >
@@ -119,7 +119,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
             <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-white">Atenção</h3>
             <p className="text-slate-600 dark:text-slate-300 mb-6">{errorMsg}</p>
             <div className="flex justify-end">
-              <button 
+              <button
                 onClick={() => setErrorMsg('')}
                 className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 rounded-lg font-medium transition-colors"
               >
