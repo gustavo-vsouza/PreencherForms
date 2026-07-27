@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, addDoc, deleteDoc, updateDoc, doc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useNotification } from '../contexts/NotificationContext';
 import * as XLSX from 'xlsx';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -42,12 +43,11 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const [isUploadingSkills, setIsUploadingSkills] = useState(false);
 
   // Modal Confirm
-  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
   const [editClassDialog, setEditClassDialog] = useState<{ isOpen: boolean; id: string; classRoom: string; grade: string; period: string }>({ isOpen: false, id: '', classRoom: '', grade: '', period: '' });
-
-  const confirmAction = (title: string, message: string, onConfirm: () => void) => {
-    setConfirmDialog({ isOpen: true, title, message, onConfirm });
-  };
+  const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
+  const [isDevAuth, setIsDevAuth] = useState(false);
+  const [devPasswordInput, setDevPasswordInput] = useState('');
+  const { showToast, showConfirm } = useNotification();
 
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -62,6 +62,17 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
 
   useEffect(() => {
     fetchInitialData();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        setIsDevPanelOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const fetchInitialData = async () => {
@@ -100,8 +111,72 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const fetchSkills = async (schoolCode: string) => {
     try {
       const snap = await getDocs(query(collection(db, 'skills_data'), where('schoolCode', '==', schoolCode)));
-      setSkillsData(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const skills = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      
+      const getGradeWeight = (grade: string) => {
+        const g = String(grade || '').toLowerCase();
+        if (g.includes('6')) return 6;
+        if (g.includes('7')) return 7;
+        if (g.includes('8')) return 8;
+        if (g.includes('9')) return 9;
+        if (g.includes('1')) return 10;
+        if (g.includes('2')) return 11;
+        if (g.includes('3')) return 12;
+        return 99;
+      };
+
+      skills.sort((a, b) => {
+        const subjectCompare = String(a.subject || '').localeCompare(String(b.subject || ''));
+        if (subjectCompare !== 0) return subjectCompare;
+        return getGradeWeight(a.grade) - getGradeWeight(b.grade);
+      });
+
+      setSkillsData(skills);
     } catch (e) { console.error(e); }
+  };
+
+  const handleDeleteAllReports = async () => {
+    showConfirm(
+      "Apagar Relatórios",
+      "ATENÇÃO: Deseja apagar TODOS os relatórios? Apenas para DEV.",
+      async () => {
+        try {
+          setLoading(true);
+          const snap = await getDocs(collection(db, 'reports'));
+          const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+          await Promise.all(deletePromises);
+          showToast("Todos os relatórios foram apagados!", "success");
+          fetchInitialData();
+        } catch (e) {
+          console.error(e);
+          showToast("Erro ao apagar relatórios.", "error");
+          setLoading(false);
+        }
+      }
+    );
+  };
+
+  const handleDeleteAllSkills = async () => {
+    showConfirm(
+      "Apagar Habilidades",
+      "ATENÇÃO: Deseja apagar TODAS as habilidades? Apenas para DEV.",
+      async () => {
+        try {
+          setLoading(true);
+          const snap = await getDocs(collection(db, 'skills_data'));
+          const deletePromises = snap.docs.map(d => deleteDoc(d.ref));
+          await Promise.all(deletePromises);
+          showToast("Todas as habilidades foram apagadas!", "success");
+          if (selectedSchoolSkills) fetchSkills(selectedSchoolSkills);
+          else fetchInitialData();
+        } catch (e) {
+          console.error(e);
+          showToast("Erro ao apagar habilidades.", "error");
+        } finally {
+          setLoading(false);
+        }
+      }
+    );
   };
 
   // --- Funções CRUD Escolas ---
@@ -113,18 +188,18 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
       setNewSchoolCode('');
       setNewSchoolName('');
       fetchInitialData();
-    } catch (error) { alert("Erro ao adicionar escola."); }
+    } catch (error) { showToast("Erro ao adicionar escola.", "error"); }
   };
 
   const handleDeleteSchool = (schoolId: string) => {
-    confirmAction(
+    showConfirm(
       'Excluir Escola',
       `Atenção! Excluir a escola removerá TODAS as turmas e relatórios associados a ela. Deseja realmente continuar?`,
       async () => {
         try {
           await deleteDoc(doc(db, 'schools', schoolId));
           fetchInitialData();
-        } catch (err) { alert("Erro ao excluir escola."); }
+        } catch (err) { showToast("Erro ao excluir escola.", "error"); }
       }
     );
   };
@@ -152,7 +227,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
           const idx = row.findIndex(cell => typeof cell === 'string' && cell.toLowerCase().trim() === 'nome');
           if (idx !== -1) { headerRowIdx = i; nameColIdx = idx; break; }
         }
-        if (headerRowIdx === -1) { alert("Erro: Não foi possível encontrar a coluna 'Nome' exata."); setIsUploading(false); return; }
+        if (headerRowIdx === -1) { showToast("Erro: Não foi possível encontrar a coluna 'Nome' exata.", "error"); setIsUploading(false); return; }
         
         const headerRow = json[headerRowIdx];
         const subjectCols: { index: number, name: string }[] = [];
@@ -191,26 +266,26 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
           uploadedAt: new Date().toISOString()
         });
         
-        alert(`Sucesso! Turma ${uploadClassName} carregada.`);
+        showToast(`Sucesso! Turma ${uploadClassName} carregada.`, "success");
         setUploadClassName('');
         setUploadGrade('');
         setUploadPeriod('');
         setUploadFile(null);
         fetchClasses(selectedSchoolTurmas);
-      } catch (err) { alert("Erro ao processar a planilha."); } finally { setIsUploading(false); }
+      } catch (err) { showToast("Erro ao processar a planilha.", "error"); } finally { setIsUploading(false); }
     };
     reader.readAsArrayBuffer(uploadFile);
   };
 
   const handleDeleteClass = (id: string, name: string) => {
-    confirmAction(
+    showConfirm(
       'Excluir Turma',
       `Tem certeza que deseja excluir a turma ${name}? Essa ação não pode ser desfeita.`,
       async () => {
         try {
           await deleteDoc(doc(db, 'uploaded_classes', id));
           fetchClasses(selectedSchoolTurmas);
-        } catch (e) { alert("Erro ao deletar."); }
+        } catch (e) { showToast("Erro ao deletar.", "error"); }
       }
     );
   };
@@ -226,7 +301,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
       fetchClasses(selectedSchoolTurmas);
       setEditClassDialog({ ...editClassDialog, isOpen: false });
     } catch (e) {
-      alert("Erro ao atualizar turma.");
+      showToast("Erro ao atualizar turma.", "error");
     }
   };
 
@@ -254,7 +329,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
           }
         }
         
-        if (headerRowIdx === -1) { alert("Erro: Não foi possível encontrar a coluna 'Descritor' na planilha."); setIsUploadingSkills(false); return; }
+        if (headerRowIdx === -1) { showToast("Erro: Não foi possível encontrar a coluna 'Descritor' na planilha.", "error"); setIsUploadingSkills(false); return; }
 
         const headers = json[headerRowIdx].map((h: any) => String(h || '').toLowerCase().trim());
         const serieIdx = headers.findIndex((h: string) => h.includes('série') || h.includes('serie'));
@@ -263,7 +338,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
         const disciplinaIdx = headers.findIndex((h: string) => h.includes('disciplina'));
 
         if (serieIdx === -1 || acertosIdx === -1 || descritorIdx === -1 || disciplinaIdx === -1) {
-          alert("Erro: A planilha deve conter as colunas: Série, Acertos, Descritor e Disciplina.");
+          showToast("Erro: A planilha deve conter as colunas: Série, Acertos, Descritor e Disciplina.", "error");
           setIsUploadingSkills(false);
           return;
         }
@@ -314,23 +389,23 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
           }
         }
         
-        alert(`Sucesso! Habilidades abaixo de 50% importadas.`);
+        showToast(`Sucesso! Habilidades abaixo de 50% importadas.`, "success");
         setUploadSkillsFile(null);
         fetchSkills(selectedSchoolSkills);
-      } catch (err) { alert("Erro ao processar a planilha de habilidades."); } finally { setIsUploadingSkills(false); }
+      } catch (err) { showToast("Erro ao processar a planilha de habilidades.", "error"); } finally { setIsUploadingSkills(false); }
     };
     reader.readAsArrayBuffer(uploadSkillsFile);
   };
 
   const handleDeleteSkillSet = (id: string, grade: string, subject: string) => {
-    confirmAction(
+    showConfirm(
       'Excluir Base de Habilidades',
       `Deletar a base de habilidades para ${grade} - ${subject}?`,
       async () => {
         try {
           await deleteDoc(doc(db, 'skills_data', id));
           fetchSkills(selectedSchoolSkills);
-        } catch (e) { alert("Erro ao deletar."); }
+        } catch (e) { showToast("Erro ao deletar.", "error"); }
       }
     );
   };
@@ -395,9 +470,11 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
               {/* Dashboard Nível 1: Escolas */}
               {!selectedSchoolCode && (
                 <>
-                  <header className="stagger-fade mb-12">
-                    <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-800 dark:text-white">Visão Geral</h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Selecione uma escola para visualizar os relatórios</p>
+                  <header className="stagger-fade mb-12 flex justify-between items-start">
+                    <div>
+                      <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-800 dark:text-white">Visão Geral</h1>
+                      <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Selecione uma escola para visualizar os relatórios</p>
+                    </div>
                   </header>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {schools.length === 0 && <p className="col-span-full text-slate-500">Nenhuma escola cadastrada.</p>}
@@ -727,6 +804,13 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
           {/* TAB: HABILIDADES */}
           {activeTab === 'habilidades' && (
             <div className="stagger-fade flex flex-col gap-8">
+              <header className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-display font-bold text-slate-800 dark:text-white">Habilidades</h1>
+                  <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Gerencie a base de habilidades do sistema</p>
+                </div>
+              </header>
+
               <div className="bg-white dark:bg-[#1e1b2e] p-6 rounded-3xl border border-slate-200 dark:border-white/10 shadow-sm max-w-xl">
                 <label className="block text-sm font-semibold text-slate-600 dark:text-slate-400 mb-3">Selecione a Escola para gerenciar Habilidades</label>
                 <div className="relative">
@@ -792,37 +876,6 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
         </div>
       </div>
       
-      {/* Confirm Modal */}
-      {confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md transition-all duration-300">
-          <div className="bg-white dark:bg-[#1e1b2e] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-white/10 transform scale-100 opacity-100 transition-all duration-300">
-            <div className="p-6 md:p-8">
-              <div className="w-14 h-14 bg-red-50 dark:bg-red-500/10 rounded-2xl flex items-center justify-center text-red-600 dark:text-red-400 mb-6">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-              </div>
-              <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">{confirmDialog.title}</h3>
-              <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">{confirmDialog.message}</p>
-            </div>
-            <div className="p-4 md:p-6 bg-slate-50 dark:bg-black/20 border-t border-slate-100 dark:border-white/5 flex flex-col-reverse md:flex-row justify-end gap-3">
-              <button 
-                onClick={() => setConfirmDialog({ ...confirmDialog, isOpen: false })} 
-                className="px-6 py-3 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors w-full md:w-auto"
-              >
-                Cancelar
-              </button>
-              <button 
-                onClick={() => {
-                  confirmDialog.onConfirm();
-                  setConfirmDialog({ ...confirmDialog, isOpen: false });
-                }} 
-                className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold shadow-lg shadow-red-500/30 transition-colors w-full md:w-auto"
-              >
-                Sim, Excluir
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Edit Class Modal */}
       {editClassDialog.isOpen && (
@@ -868,6 +921,103 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Dev Panel Modal */}
+      {isDevPanelOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md transition-all duration-300">
+          {!isDevAuth ? (
+            <div className="bg-white dark:bg-[#1e1b2e] rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden border border-slate-200 dark:border-white/10 p-6 md:p-8 text-center animate-in fade-in zoom-in duration-200">
+              <div className="w-14 h-14 bg-slate-100 dark:bg-white/5 rounded-2xl flex items-center justify-center text-slate-600 dark:text-slate-400 mx-auto mb-6">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+              </div>
+              <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Acesso DEV</h3>
+              <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-6">Insira a senha de desenvolvedor para continuar.</p>
+              
+              <input 
+                type="password"
+                placeholder="Senha de acesso..."
+                value={devPasswordInput}
+                onChange={e => setDevPasswordInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    if (devPasswordInput === 'adm@123') {
+                      setIsDevAuth(true);
+                      setDevPasswordInput('');
+                    } else {
+                      showToast("Senha incorreta", "error");
+                      setDevPasswordInput('');
+                      setIsDevPanelOpen(false);
+                    }
+                  }
+                }}
+                className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 mb-6 outline-none focus:border-blue-500 transition-colors text-center font-medium"
+                autoFocus
+              />
+              
+              <div className="flex justify-end gap-3">
+                <button 
+                  onClick={() => { setIsDevPanelOpen(false); setDevPasswordInput(''); }} 
+                  className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-full"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={() => {
+                    if (devPasswordInput === 'adm@123') {
+                      setIsDevAuth(true);
+                      setDevPasswordInput('');
+                    } else {
+                      showToast("Senha incorreta", "error");
+                      setDevPasswordInput('');
+                      setIsDevPanelOpen(false);
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-colors w-full"
+                >
+                  Entrar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-[#1e1b2e] rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-white/10 transform scale-100 opacity-100 transition-all duration-300 animate-in fade-in zoom-in duration-200">
+              <div className="p-6 md:p-8 flex flex-col gap-6">
+                <div className="flex items-center gap-3 text-red-600 dark:text-red-400">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                  <h3 className="text-2xl font-bold">Painel DEV</h3>
+                </div>
+                <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+                  Utilize as opções abaixo apenas em ambiente de desenvolvimento para facilitar seus testes.
+                </p>
+                
+                <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={() => { handleDeleteAllReports(); setIsDevPanelOpen(false); setIsDevAuth(false); }}
+                    className="w-full flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-black/20 hover:bg-red-50 dark:hover:bg-red-500/10 border border-slate-200 dark:border-white/10 rounded-xl transition-colors group"
+                  >
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 group-hover:text-red-600 dark:group-hover:text-red-400">Apagar Todos os Relatórios</span>
+                    <svg className="text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                  <button 
+                    onClick={() => { handleDeleteAllSkills(); setIsDevPanelOpen(false); setIsDevAuth(false); }}
+                    className="w-full flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-black/20 hover:bg-red-50 dark:hover:bg-red-500/10 border border-slate-200 dark:border-white/10 rounded-xl transition-colors group"
+                  >
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 group-hover:text-red-600 dark:group-hover:text-red-400">Apagar Todas as Habilidades</span>
+                    <svg className="text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                  </button>
+                </div>
+              </div>
+              <div className="p-4 md:p-6 bg-slate-50 dark:bg-black/20 border-t border-slate-100 dark:border-white/5 flex justify-end">
+                <button 
+                  onClick={() => { setIsDevPanelOpen(false); setIsDevAuth(false); }} 
+                  className="px-6 py-3 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

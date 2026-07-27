@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useNotification } from '../contexts/NotificationContext';
 import { Combobox } from './Combobox';
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
@@ -36,12 +37,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Custom Modal (Alert/Confirm)
-  const [modalConfig, setModalConfig] = useState<{
-    title: string;
-    message: string;
-    type: 'alert' | 'confirm';
-    onConfirm?: () => void;
-  } | null>(null);
+  const { showToast, showConfirm } = useNotification();
 
   // Uploaded Classes (Excel)
   const [uploadedClasses, setUploadedClasses] = useState<any[]>([]);
@@ -166,17 +162,6 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
     return s.score < 0.5;
   });
 
-  const showAlert = (title: string, message: string) => {
-    setModalConfig({ title, message, type: 'alert' });
-  };
-
-  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
-    setModalConfig({ title, message, type: 'confirm', onConfirm });
-  };
-
-  const closeModal = () => {
-    setModalConfig(null);
-  };
 
   const handleStartNewClass = () => {
     showConfirm(
@@ -186,26 +171,25 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
         setGlobalInfo({ teacherName: '', classRoom: '', subject: '' });
         setStudents([{ name: '', unreachedSkill: '', actionPlan: '' }]);
         setExpandedIndex(0);
-        closeModal();
       }
     );
   };
 
   const validateForm = (): boolean => {
     if (visibleStudents.length === 0) {
-      showAlert("Atenção", "Por favor, adicione ou filtre pelo menos um aluno antes de gerar os relatórios.");
+      showToast("Por favor, adicione ou filtre pelo menos um aluno antes de gerar os relatórios.", "warning");
       return false;
     }
 
     if (!globalInfo.teacherName.trim() || !globalInfo.classRoom.trim() || !globalInfo.subject.trim()) {
-      showAlert("Dados Incompletos", "Por favor, preencha todos os dados globais (Professor, Turma, Disciplina).");
+      showToast("Por favor, preencha todos os dados globais (Professor, Turma, Disciplina).", "warning");
       return false;
     }
     
     for (let i = 0; i < visibleStudents.length; i++) {
       const s = visibleStudents[i];
       if (!s.name.trim() || !s.unreachedSkill.trim() || !s.actionPlan.trim()) {
-        showAlert("Dados Incompletos", `Por favor, preencha todos os campos do aluno ${i + 1} (${s.name || 'Sem nome'}).`);
+        showToast(`Por favor, preencha todos os campos do aluno ${i + 1} (${s.name || 'Sem nome'}).`, "warning");
         return false;
       }
     }
@@ -223,7 +207,6 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
   };
 
   const generateReports = async () => {
-    closeModal();
     setIsModalOpen(true);
 
     try {
@@ -343,7 +326,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
       
     } catch (error) {
       console.error(error);
-      showAlert("Erro", "Ocorreu um erro ao gerar os relatórios. Verifique o console.");
+      showToast("Ocorreu um erro ao gerar os relatórios. Verifique o console.", "error");
     } finally {
       setIsModalOpen(false);
     }
@@ -470,7 +453,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
                     <button 
                       onClick={(e) => { 
                         e.stopPropagation();
-                        showConfirm('Remover Aluno', 'Tem certeza que deseja remover este aluno?', () => { removeStudent(originalIndex); closeModal(); });
+                        showConfirm('Remover Aluno', 'Tem certeza que deseja remover este aluno?', () => { removeStudent(originalIndex); });
                       }}
                       className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-full transition-colors"
                     >
@@ -553,24 +536,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
         </div>
       )}
 
-      {modalConfig && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md">
-          <div className="bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-200">
-            <h3 className="text-xl font-bold mb-3 text-slate-800 dark:text-white">{modalConfig.title}</h3>
-            <div className="text-slate-600 dark:text-slate-300 mb-8 whitespace-pre-wrap">{modalConfig.message}</div>
-            <div className="flex justify-end gap-3">
-              {modalConfig.type === 'confirm' ? (
-                <>
-                  <button onClick={closeModal} className="px-5 py-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-medium transition-colors">Cancelar</button>
-                  <button onClick={modalConfig.onConfirm} className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg shadow-blue-500/30 transition-colors">Confirmar</button>
-                </>
-              ) : (
-                <button onClick={closeModal} className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg shadow-blue-500/30 transition-colors">Entendi</button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
