@@ -85,7 +85,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
               <input
                 type="text"
                 id="schoolCode"
-                placeholder="Ex: PRATICI001"
+                placeholder="Ex: ESCOLA123"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 autoFocus
