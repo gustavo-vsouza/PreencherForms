@@ -35,6 +35,8 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
   const [students, setStudents] = useState<Student[]>([{ name: '', unreachedSkill: '', actionPlan: '' }]);
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchStudentNames, setBatchStudentNames] = useState('');
   
   // Custom Modal (Alert/Confirm)
   const { showToast, showConfirm } = useNotification();
@@ -143,6 +145,25 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
   const addStudent = () => {
     setStudents([...students, { name: '', unreachedSkill: '', actionPlan: '' }]);
     setExpandedIndex(students.length);
+  };
+
+  const handleBatchAddStudents = () => {
+    const names = batchStudentNames.split('\n').map(n => n.trim()).filter(n => n.length > 0);
+    if (names.length === 0) {
+      showToast("Insira pelo menos um nome.", "warning");
+      return;
+    }
+    
+    let currentStudents = [...students];
+    if (currentStudents.length === 1 && !currentStudents[0].name && !currentStudents[0].unreachedSkill && !currentStudents[0].actionPlan) {
+      currentStudents = [];
+    }
+
+    const newStudents = names.map(name => ({ name, unreachedSkill: '', actionPlan: '' }));
+    setStudents([...currentStudents, ...newStudents]);
+    setIsBatchModalOpen(false);
+    setBatchStudentNames('');
+    showToast(`${names.length} alunos adicionados!`, "success");
   };
 
   const removeStudent = (index: number) => {
@@ -382,7 +403,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
             <label htmlFor="subject" className="text-sm font-semibold text-slate-600 dark:text-slate-400">Disciplina</label>
             {selectedUploadedClass ? (
               <Combobox 
-                options={selectedUploadedClass.subjects}
+                options={selectedUploadedClass.subjects.filter((s: string) => !s.includes('(%) Participação') && !s.includes('(%) Acertos'))}
                 value={globalInfo.subject}
                 onChange={handleSubjectComboboxChange}
                 placeholder="Ex: PORT"
@@ -501,12 +522,20 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
           })}
         </div>
 
-        <button 
-          onClick={addStudent} 
-          className="mt-6 w-full py-4 border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl text-slate-500 dark:text-slate-400 font-semibold hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
-        >
-          + Adicionar Aluno Manualmente
-        </button>
+        <div className="flex flex-col sm:flex-row gap-4 mt-6 w-full">
+          <button 
+            onClick={addStudent} 
+            className="flex-1 py-4 border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl text-slate-500 dark:text-slate-400 font-semibold hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors"
+          >
+            + Adicionar Aluno Manualmente
+          </button>
+          <button 
+            onClick={() => setIsBatchModalOpen(true)} 
+            className="flex-1 py-4 border-2 border-dashed border-slate-300 dark:border-white/20 rounded-2xl text-slate-500 dark:text-slate-400 font-semibold hover:border-green-500 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10 transition-colors"
+          >
+            + Adicionar Alunos em Lote
+          </button>
+        </div>
       </section>
 
       {/* Floating Actions */}
@@ -527,6 +556,38 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
       </div>
 
       {/* Modals */}
+      {isBatchModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-sm">
+          <div className="bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-8 max-w-lg w-full shadow-2xl flex flex-col">
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">Adicionar Alunos em Lote</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">Cole ou digite o nome de cada aluno em uma linha separada.</p>
+            
+            <textarea
+              value={batchStudentNames}
+              onChange={(e) => setBatchStudentNames(e.target.value)}
+              rows={8}
+              placeholder="Exemplo:&#10;Maria Silva&#10;João Souza&#10;Pedro Santos"
+              className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-green-500 transition-colors resize-y mb-6"
+            />
+            
+            <div className="flex gap-3 justify-end">
+              <button 
+                onClick={() => { setIsBatchModalOpen(false); setBatchStudentNames(''); }}
+                className="px-6 py-3 rounded-xl border border-slate-300 dark:border-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5 font-medium transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={handleBatchAddStudents}
+                className="px-6 py-3 rounded-xl bg-green-600 hover:bg-green-500 text-white font-bold shadow-lg shadow-green-500/30 transition-all"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md">
           <div className="bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center">

@@ -56,16 +56,19 @@ export function LoginView({ onLogin }: LoginViewProps) {
       {/* Navbar (Mocked to match reference) */}
       <nav className="absolute top-0 w-full flex justify-between items-center px-8 py-6 z-20">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-blue-600 dark:bg-white text-white dark:text-blue-600 flex items-center justify-center font-bold font-display">P</div>
-          <span className="font-bold tracking-wider uppercase text-sm text-slate-800 dark:text-white">PreencherForms</span>
+          <div className="w-8 h-8 rounded-full bg-blue-600 dark:bg-white text-white dark:text-blue-600 flex items-center justify-center font-bold font-display">S</div>
+          <span className="font-bold tracking-wider uppercase text-sm text-slate-800 dark:text-white">SIGEP</span>
         </div>
       </nav>
 
       <div className="relative z-10 w-full max-w-5xl px-6 flex flex-col lg:flex-row items-center justify-between gap-12">
         {/* Hero Section */}
         <div className="flex-1 text-center lg:text-left">
-          <h1 className="hero-text font-display text-5xl md:text-7xl lg:text-8xl font-bold tracking-tighter mb-4 text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-blue-600 dark:from-white dark:to-blue-200" style={{ fontFamily: 'var(--font-display)' }}>
-            Acesse. <br /> Preencha. <br /> Finalize.
+          <h1 className="hero-text font-display text-5xl md:text-6xl lg:text-7xl font-bold tracking-tighter mb-4" style={{ fontFamily: 'var(--font-display)' }}>
+            <span className="text-blue-600 dark:text-blue-400">S</span><span className="text-slate-800 dark:text-white">istema</span> <br />
+            <span className="text-blue-600 dark:text-blue-400">I</span><span className="text-slate-800 dark:text-white">ntegrado de</span> <br />
+            <span className="text-blue-600 dark:text-blue-400">Ge</span><span className="text-slate-800 dark:text-white">stão</span> <br />
+            <span className="text-blue-600 dark:text-blue-400">P</span><span className="text-slate-800 dark:text-white">edagógica</span>
           </h1>
           <p className="hero-text text-lg md:text-xl text-slate-600 dark:text-blue-100/70 font-medium tracking-wide uppercase">
             Acesso ao sistema de gestão escolar
@@ -129,6 +132,13 @@ export function LoginView({ onLogin }: LoginViewProps) {
           </div>
         </div>
       )}
+
+      {/* Footer Credits */}
+      <div className="absolute bottom-4 text-center w-full z-20">
+        <p className="text-xs font-medium text-slate-500 dark:text-slate-500">
+          Desenvolvido por Prof. Wesley &amp; Prof. Gustavo ® 2026
+        </p>
+      </div>
     </div>
   );
 }

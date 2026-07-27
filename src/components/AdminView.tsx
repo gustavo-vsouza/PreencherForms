@@ -505,8 +505,15 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
               {/* Dashboard Nível 2/3: Turmas com Dropdown de Período */}
               {selectedSchoolCode && selectedPeriod && !selectedClassRoom && (() => {
                 const schoolReports = reports.filter(r => r.schoolCode === selectedSchoolCode);
-                const periodClasses = uploadedClasses.filter(c => c.period === selectedPeriod || (!c.period && selectedPeriod === 'Manhã'));
-                
+                let periodClasses = [];
+                if (selectedPeriod === 'Outros') {
+                  const manualClassRooms = Array.from(new Set(schoolReports.map(r => r.classRoom))).filter(
+                    room => !uploadedClasses.some(c => c.classRoom === room)
+                  );
+                  periodClasses = manualClassRooms.map(room => ({ id: 'manual_'+room, classRoom: room, period: 'Outros' }));
+                } else {
+                  periodClasses = uploadedClasses.filter(c => c.period === selectedPeriod || (!c.period && selectedPeriod === 'Manhã'));
+                }
                 return (
                   <>
                     <header className="stagger-fade mb-12 flex flex-col gap-4">
@@ -523,6 +530,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                             <option value="Manhã">Manhã</option>
                             <option value="Tarde">Tarde</option>
                             <option value="Noite">Noite</option>
+                            <option value="Outros">Outros</option>
                           </select>
                           <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>

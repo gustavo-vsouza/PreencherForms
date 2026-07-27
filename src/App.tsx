@@ -15,7 +15,7 @@ function App() {
   const [schoolName, setSchoolName] = useState('');
   const [isReady, setIsReady] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true); // Default dark to match reference
-  
+
   // Try restore session
   useEffect(() => {
     const savedCode = localStorage.getItem('schoolCode');
@@ -26,7 +26,7 @@ function App() {
       setSchoolName(savedName || '');
       setView(savedView);
     }
-    
+
     // Check saved theme
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light') {
@@ -35,7 +35,7 @@ function App() {
     } else {
       document.documentElement.classList.add('dark');
     }
-    
+
     setIsReady(true);
   }, []);
 
@@ -60,7 +60,7 @@ function App() {
       localStorage.setItem('view', 'admin');
       return true;
     }
-    
+
     if (code === 'PRATICI001') {
       setSchoolCode(code);
       setSchoolName('Antônio Prátici');
@@ -106,7 +106,7 @@ function App() {
   return (
     <NotificationProvider>
       <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300 font-sans relative">
-        <button 
+        <button
           onClick={toggleTheme}
           className="absolute top-4 right-4 z-50 p-2 rounded-full bg-[var(--bg-secondary)] border border-[var(--border-color)] shadow-sm hover:scale-105 transition-transform"
           aria-label="Toggle Dark Mode"
@@ -127,3 +127,5 @@ function App() {
 }
 
 export default App;
+
+// Created by - Prof Wesley and Prof Gustavo
