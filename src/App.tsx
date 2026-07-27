@@ -54,14 +54,14 @@ function App() {
   };
 
   const handleLogin = async (code: string): Promise<boolean | void> => {
-    // btoa('COORDENACAO1') = 'Q09PUkRFTkFDQU8x'
-    if (btoa(code) === 'Q09PUkRFTkFDQU8x') {
+    // Verificação utilizando hash em base64 salvo nas variáveis de ambiente
+    if (btoa(code) === import.meta.env.VITE_COORD_HASH) {
       setView('admin');
       localStorage.setItem('view', 'admin');
       return true;
     }
 
-    if (code === 'PRATICI001') {
+    if (btoa(code) === import.meta.env.VITE_SCHOOL_CODE_HASH) {
       setSchoolCode(code);
       setSchoolName('Antônio Prátici');
       setView('teacher');
