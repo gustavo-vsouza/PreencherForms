@@ -17,17 +17,17 @@ export function LoginView({ onLogin }: LoginViewProps) {
     const tl = gsap.timeline();
     
     tl.fromTo('.hero-text', 
-      { opacity: 0, y: 50 }, 
-      { opacity: 1, y: 0, duration: 0.8, stagger: 0.2, ease: 'power3.out' }
+      { opacity: 0, y: 30 }, 
+      { opacity: 1, y: 0, duration: 1.5, stagger: 0.2, ease: 'power3.out' }
     )
     .fromTo('.login-box',
-      { opacity: 0, scale: 0.95 },
-      { opacity: 1, scale: 1, duration: 0.6, ease: 'back.out(1.5)' },
-      "-=0.4"
+      { opacity: 0, y: 15 },
+      { opacity: 1, y: 0, duration: 1.2, ease: 'power3.out' },
+      "-=1.0"
     )
     .fromTo('.gradient-orb',
-      { opacity: 0, scale: 0.5 },
-      { opacity: 0.6, scale: 1, duration: 1.5, stagger: 0.3, ease: 'power2.out' },
+      { opacity: 0 },
+      { opacity: 0.6, duration: 2, ease: 'power2.out' },
       0
     );
   }, { scope: containerRef });
@@ -85,7 +85,7 @@ export function LoginView({ onLogin }: LoginViewProps) {
               <input
                 type="text"
                 id="schoolCode"
-                placeholder="Ex: PRATICI001"
+                placeholder="Digite o código da escola"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
                 autoFocus

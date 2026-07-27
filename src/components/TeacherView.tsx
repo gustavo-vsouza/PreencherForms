@@ -52,8 +52,8 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
   
   useGSAP(() => {
     gsap.fromTo('.stagger-fade', 
-      { opacity: 0, y: 30 }, 
-      { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'power2.out' }
+      { opacity: 0, y: 15 }, 
+      { opacity: 1, y: 0, duration: 1.2, stagger: 0.1, ease: 'power2.out', clearProps: 'all' }
     );
   }, { scope: containerRef });
 
@@ -397,7 +397,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
             <label htmlFor="subject" className="text-sm font-semibold text-slate-600 dark:text-slate-400">Disciplina</label>
             {selectedUploadedClass ? (
               <Combobox 
-                options={selectedUploadedClass.subjects}
+                options={selectedUploadedClass.subjects.filter((s: string) => !s.toLowerCase().includes('participação') && !s.toLowerCase().includes('acerto'))}
                 value={globalInfo.subject}
                 onChange={handleSubjectComboboxChange}
                 placeholder="Ex: PORT"

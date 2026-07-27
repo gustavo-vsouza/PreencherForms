@@ -58,8 +58,8 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   useGSAP(() => {
     if (!loading && contentRef.current) {
       gsap.fromTo('.stagger-fade', 
-        { opacity: 0, y: 20 }, 
-        { opacity: 1, y: 0, duration: 0.5, stagger: 0.05, ease: 'power2.out', clearProps: 'all' }
+        { opacity: 0, y: 15 }, 
+        { opacity: 1, y: 0, duration: 1.0, stagger: 0.1, ease: 'power2.out', clearProps: 'all' }
       );
     }
   }, { scope: contentRef, dependencies: [loading, activeTab, selectedSchoolCode, selectedPeriod, selectedClassRoom, selectedReport] });
@@ -323,14 +323,6 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   };
 
   // --- Render Helpers ---
-  if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 dark:bg-[#0f0e17]">
-        <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-        <div className="text-slate-500 font-medium animate-pulse">Carregando dados...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-[#0f0e17]">
@@ -374,10 +366,16 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
 
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto" ref={contentRef}>
-        <div className="max-w-7xl mx-auto px-6 py-12 pb-32">
-          
-          {/* TAB: DASHBOARD */}
-          {activeTab === 'dashboard' && (
+        {loading ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <div className="text-slate-500 font-medium animate-pulse">Carregando dados...</div>
+          </div>
+        ) : (
+          <div className="max-w-7xl mx-auto px-6 py-12 pb-32">
+            
+            {/* TAB: DASHBOARD */}
+            {activeTab === 'dashboard' && (
             <>
               {/* Dashboard Nível 1: Escolas */}
               {!selectedSchoolCode && (
@@ -772,6 +770,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
           )}
 
         </div>
+        )}
       </div>
       
       {/* Confirm Modal */}
