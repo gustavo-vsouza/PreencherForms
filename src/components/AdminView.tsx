@@ -46,7 +46,9 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const [isUploadingSkills, setIsUploadingSkills] = useState(false);
 
   // Modal Confirm
-  const [editClassDialog, setEditClassDialog] = useState<{ isOpen: boolean; id: string; classRoom: string; grade: string; period: string }>({ isOpen: false, id: '', classRoom: '', grade: '', period: '' });
+  const [editClassDialog, setEditClassDialog] = useState<{ isOpen: boolean; id: string; classRoom: string; grade: string; period: string; isTecnico?: boolean; students?: any[]; subjects?: string[] }>({ isOpen: false, id: '', classRoom: '', grade: '', period: '', isTecnico: false, students: [], subjects: [] });
+  const [tecnicoFile, setTecnicoFile] = useState<File | null>(null);
+  const [isUpdatingClass, setIsUpdatingClass] = useState(false);
   const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
   const [isDevAuth, setIsDevAuth] = useState(false);
   const [devPasswordInput, setDevPasswordInput] = useState('');
@@ -310,16 +312,94 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
 
   const handleUpdateClass = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsUpdatingClass(true);
     try {
-      await updateDoc(doc(db, 'uploaded_classes', editClassDialog.id), {
+      let updatedStudents = editClassDialog.students ? [...editClassDialog.students] : [];
+      let updatedSubjects = editClassDialog.subjects ? [...editClassDialog.subjects] : [];
+      let hasFileChanges = false;
+
+      if (editClassDialog.isTecnico && tecnicoFile) {
+        const data = await tecnicoFile.arrayBuffer();
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+        
+        let headerRowIdx = -1;
+        let nomeIdx = -1, componenteIdx = -1, acertosIdx = -1;
+        
+        for (let i = 0; i < Math.min(10, json.length); i++) {
+          const row = json[i];
+          if (!row) continue;
+          const headers = row.map((cell: any) => String(cell || '').toLowerCase().trim());
+          nomeIdx = headers.findIndex((h: string) => h === 'nome');
+          componenteIdx = headers.findIndex((h: string) => h === 'componente');
+          acertosIdx = headers.findIndex((h: string) => h.includes('acertos'));
+          
+          if (nomeIdx !== -1 && componenteIdx !== -1 && acertosIdx !== -1) {
+            headerRowIdx = i;
+            break;
+          }
+        }
+        
+        if (headerRowIdx !== -1) {
+          hasFileChanges = true;
+          for (let i = headerRowIdx + 1; i < json.length; i++) {
+            const row = json[i];
+            if (!row || !row[nomeIdx]) continue;
+            
+            const studentName = String(row[nomeIdx]).trim();
+            const componente = String(row[componenteIdx]).trim();
+            const acertosStr = String(row[acertosIdx]).trim();
+            
+            let numVal: number | undefined = undefined;
+            if (typeof row[acertosIdx] === 'number') {
+               numVal = row[acertosIdx] > 1 ? row[acertosIdx] / 100 : row[acertosIdx];
+            } else {
+               const parsed = parseFloat(acertosStr.replace(',', '.').replace('%', ''));
+               if (!isNaN(parsed)) { numVal = parsed > 1 ? parsed / 100 : parsed; }
+            }
+            
+            if (numVal !== undefined && componente) {
+              if (!updatedSubjects.includes(componente)) {
+                updatedSubjects.push(componente);
+              }
+              const student = updatedStudents.find(s => s.name.toLowerCase() === studentName.toLowerCase());
+              if (student) {
+                if (!student.scores) student.scores = {};
+                student.scores[componente] = numVal;
+              }
+            }
+          }
+        } else {
+          showToast("Erro: Planilha do técnico em formato inválido.", "error");
+          setIsUpdatingClass(false);
+          return;
+        }
+      }
+
+      const payload: any = {
         classRoom: editClassDialog.classRoom.trim(),
         grade: editClassDialog.grade.trim(),
-        period: editClassDialog.period.trim()
-      });
+        period: editClassDialog.period.trim(),
+        isTecnico: editClassDialog.isTecnico || false
+      };
+      
+      if (hasFileChanges) {
+        payload.students = updatedStudents;
+        payload.subjects = updatedSubjects;
+      }
+
+      await updateDoc(doc(db, 'uploaded_classes', editClassDialog.id), payload);
       fetchClasses(selectedSchoolTurmas);
-      setEditClassDialog({ ...editClassDialog, isOpen: false });
+      setEditClassDialog({ isOpen: false, id: '', classRoom: '', grade: '', period: '', isTecnico: false, students: [], subjects: [] });
+      setTecnicoFile(null);
+      showToast("Turma atualizada com sucesso!", "success");
     } catch (e) {
+      console.error(e);
       showToast("Erro ao atualizar turma.", "error");
+    } finally {
+      setIsUpdatingClass(false);
     }
   };
 
@@ -829,7 +909,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                             </div>
                           </div>
                           <div className="flex gap-2">
-                            <button onClick={() => setEditClassDialog({ isOpen: true, id: c.id, classRoom: c.classRoom, grade: c.grade, period: c.period || '' })} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Editar">
+                            <button onClick={() => setEditClassDialog({ isOpen: true, id: c.id, classRoom: c.classRoom, grade: c.grade, period: c.period || '', isTecnico: c.isTecnico || false, students: c.students || [], subjects: c.subjects || [] })} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Editar">
                               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                             </button>
                             <button onClick={() => handleDeleteClass(c.id, c.classRoom)} className="w-12 h-12 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100" title="Excluir">
@@ -946,12 +1026,23 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                     <option value="Integral">Integral</option>
                   </select>
                 </div>
+                <div className="flex items-center gap-2 mt-2">
+                  <input type="checkbox" id="isTecnicoCheck" checked={editClassDialog.isTecnico || false} onChange={e => setEditClassDialog({...editClassDialog, isTecnico: e.target.checked})} className="w-5 h-5 text-blue-600 bg-slate-50 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600 cursor-pointer" />
+                  <label htmlFor="isTecnicoCheck" className="text-sm font-semibold text-slate-600 dark:text-slate-400 cursor-pointer">É turma do técnico?</label>
+                </div>
+                {editClassDialog.isTecnico && (
+                  <div className="flex flex-col gap-2 mt-2">
+                    <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Documento de Notas do Técnico (Excel)</label>
+                    <input type="file" accept=".xlsx, .xls" onChange={(e) => setTecnicoFile(e.target.files?.[0] || null)} className="block w-full text-sm text-slate-500 dark:text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 dark:file:bg-blue-500/10 dark:file:text-blue-400 hover:file:bg-blue-100 dark:hover:file:bg-blue-500/20 file:transition-colors cursor-pointer"/>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">Selecione o arquivo para carregar as matérias e % de acertos (opcional).</p>
+                  </div>
+                )}
               </form>
             </div>
             <div className="p-4 md:p-6 bg-slate-50 dark:bg-black/20 border-t border-slate-100 dark:border-white/5 flex flex-col-reverse md:flex-row justify-end gap-3">
               <button 
                 type="button"
-                onClick={() => setEditClassDialog({ ...editClassDialog, isOpen: false })} 
+                onClick={() => { setEditClassDialog({ ...editClassDialog, isOpen: false }); setTecnicoFile(null); }} 
                 className="px-6 py-3 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-200 dark:hover:bg-white/10 transition-colors w-full md:w-auto"
               >
                 Cancelar
@@ -959,8 +1050,10 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
               <button 
                 type="submit"
                 form="editClassForm"
-                className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-colors w-full md:w-auto"
+                disabled={isUpdatingClass}
+                className={`px-6 py-3 rounded-xl text-white font-semibold shadow-lg transition-colors w-full md:w-auto flex items-center justify-center gap-2 ${isUpdatingClass ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/30'}`}
               >
+                {isUpdatingClass ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : null}
                 Salvar Alterações
               </button>
             </div>
