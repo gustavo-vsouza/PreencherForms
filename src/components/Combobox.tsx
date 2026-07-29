@@ -4,19 +4,15 @@ interface ComboboxProps {
   options: string[];
   value: string;
   onChange: (val: string) => void;
+  onSelect?: (val: string) => void;
   onEnter?: (val: string) => void;
   placeholder?: string;
   id?: string;
 }
 
-export function Combobox({ options, value, onChange, onEnter, placeholder = "Selecione ou digite...", id }: ComboboxProps) {
+export function Combobox({ options, value, onChange, onSelect, onEnter, placeholder = "Selecione ou digite...", id }: ComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [query, setQuery] = useState(value);
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setQuery(value);
-  }, [value]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -29,7 +25,7 @@ export function Combobox({ options, value, onChange, onEnter, placeholder = "Sel
   }, []);
 
   const filteredOptions = options.filter(option =>
-    option.toLowerCase().includes(query.toLowerCase())
+    option.toLowerCase().includes(value.toLowerCase())
   );
 
   return (
@@ -39,9 +35,8 @@ export function Combobox({ options, value, onChange, onEnter, placeholder = "Sel
         type="text"
         className="w-full bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 pr-10 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-slate-800 dark:text-white placeholder:text-slate-400"
         placeholder={placeholder}
-        value={query}
+        value={value}
         onChange={(e) => {
-          setQuery(e.target.value);
           onChange(e.target.value);
           setIsOpen(true);
         }}
@@ -50,7 +45,7 @@ export function Combobox({ options, value, onChange, onEnter, placeholder = "Sel
           if (e.key === 'Enter') {
             e.preventDefault();
             if (onEnter) {
-              onEnter(query);
+              onEnter(value);
               setIsOpen(false);
             }
           }
@@ -70,9 +65,12 @@ export function Combobox({ options, value, onChange, onEnter, placeholder = "Sel
               key={idx}
               className="px-4 py-2 hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer text-slate-700 dark:text-slate-300 transition-colors"
               onClick={() => {
-                setQuery(option);
-                onChange(option);
                 setIsOpen(false);
+                if (onSelect) {
+                  onSelect(option);
+                } else {
+                  onChange(option);
+                }
               }}
             >
               {option}

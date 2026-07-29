@@ -174,25 +174,31 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
   };
 
   const updateStudent = (index: number, field: keyof Student, value: any) => {
-    const newStudents = [...students];
-    newStudents[index] = { ...newStudents[index], [field]: value };
-    setStudents(newStudents);
+    setStudents(prev => {
+      const newStudents = [...prev];
+      newStudents[index] = { ...newStudents[index], [field]: value };
+      return newStudents;
+    });
   };
 
   const addSkillToStudent = (index: number, skill: string) => {
     if (!skill.trim()) return;
-    const newStudents = [...students];
-    if (!newStudents[index].unreachedSkills.includes(skill)) {
-      newStudents[index].unreachedSkills = [...newStudents[index].unreachedSkills, skill];
-    }
-    newStudents[index].unreachedSkill = ''; // clear input
-    setStudents(newStudents);
+    setStudents(prev => {
+      const newStudents = [...prev];
+      if (!newStudents[index].unreachedSkills.includes(skill)) {
+        newStudents[index].unreachedSkills = [...newStudents[index].unreachedSkills, skill];
+      }
+      newStudents[index].unreachedSkill = ''; // clear input
+      return newStudents;
+    });
   };
 
   const removeSkillFromStudent = (index: number, skillToRemove: string) => {
-    const newStudents = [...students];
-    newStudents[index].unreachedSkills = newStudents[index].unreachedSkills.filter(s => s !== skillToRemove);
-    setStudents(newStudents);
+    setStudents(prev => {
+      const newStudents = [...prev];
+      newStudents[index].unreachedSkills = newStudents[index].unreachedSkills.filter(s => s !== skillToRemove);
+      return newStudents;
+    });
   };
 
   const visibleStudents = students.filter(s => {
@@ -558,6 +564,8 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
                         value={student.unreachedSkill}
                         onChange={(val) => {
                           updateStudent(originalIndex, 'unreachedSkill', val);
+                        }}
+                        onSelect={(val) => {
                           if (val !== 'Nenhuma habilidade filtrada encontrada' && val.trim()) {
                             addSkillToStudent(originalIndex, val);
                           }
