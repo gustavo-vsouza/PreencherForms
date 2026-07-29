@@ -52,6 +52,11 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const [isDevPanelOpen, setIsDevPanelOpen] = useState(false);
   const [isDevAuth, setIsDevAuth] = useState(false);
   const [devPasswordInput, setDevPasswordInput] = useState('');
+  const [isBatchSkillsModalOpen, setIsBatchSkillsModalOpen] = useState(false);
+  const [batchSkillsSchool, setBatchSkillsSchool] = useState('');
+  const [batchSkillsGrade, setBatchSkillsGrade] = useState('');
+  const [batchSkillsSubject, setBatchSkillsSubject] = useState('');
+  const [batchSkillsText, setBatchSkillsText] = useState('');
   const { showToast, showConfirm } = useNotification();
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -182,6 +187,39 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
         }
       }
     );
+  };
+
+  const handleBatchInsertSkills = async () => {
+    if (!batchSkillsSchool || !batchSkillsGrade || !batchSkillsSubject || !batchSkillsText.trim()) {
+      showToast("Preencha todos os campos e insira habilidades.", "error");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const skillsArray = batchSkillsText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+      const uniqueSkills = [...new Set(skillsArray)];
+
+      await addDoc(collection(db, 'skills_data'), {
+        schoolCode: batchSkillsSchool,
+        grade: batchSkillsGrade,
+        subject: batchSkillsSubject,
+        skills: uniqueSkills,
+        uploadedAt: new Date().toISOString()
+      });
+
+      showToast(`${uniqueSkills.length} habilidades inseridas com sucesso!`, "success");
+      setIsBatchSkillsModalOpen(false);
+      setIsDevAuth(false);
+      setBatchSkillsText('');
+      setBatchSkillsSubject('');
+      if (selectedSchoolSkills === batchSkillsSchool) fetchSkills(batchSkillsSchool);
+    } catch (error) {
+      console.error(error);
+      showToast("Erro ao inserir habilidades em lote.", "error");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // --- Funções CRUD Escolas ---
@@ -1143,6 +1181,13 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                     <span className="font-semibold text-slate-700 dark:text-slate-300 group-hover:text-red-600 dark:group-hover:text-red-400">Apagar Todas as Habilidades</span>
                     <svg className="text-slate-400 group-hover:text-red-600 dark:group-hover:text-red-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                   </button>
+                  <button 
+                    onClick={() => { setIsBatchSkillsModalOpen(true); setIsDevPanelOpen(false); }}
+                    className="w-full flex items-center justify-between px-6 py-4 bg-slate-50 dark:bg-black/20 hover:bg-blue-50 dark:hover:bg-blue-500/10 border border-slate-200 dark:border-white/10 rounded-xl transition-colors group"
+                  >
+                    <span className="font-semibold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400">Inserir Habilidades (Texto)</span>
+                    <svg className="text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"></path></svg>
+                  </button>
                 </div>
               </div>
               <div className="p-4 md:p-6 bg-slate-50 dark:bg-black/20 border-t border-slate-100 dark:border-white/5 flex justify-end">
@@ -1155,6 +1200,53 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Dev Batch Skills Modal */}
+      {isBatchSkillsModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md transition-all duration-300">
+          <div className="bg-white dark:bg-[#1e1b2e] rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-white/10 p-6 md:p-8 animate-in fade-in zoom-in duration-200 flex flex-col gap-4">
+            <h3 className="text-2xl font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2">
+              <svg className="text-blue-500" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              Inserir Habilidades em Lote
+            </h3>
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Escola (Código)</label>
+              <select value={batchSkillsSchool} onChange={e => setBatchSkillsSchool(e.target.value)} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white">
+                <option value="">Selecione uma escola...</option>
+                {schools.map(s => <option key={s.id} value={s.code}>{s.name} ({s.code})</option>)}
+              </select>
+            </div>
+            
+            <div className="flex gap-4">
+              <div className="flex flex-col gap-2 flex-1">
+                <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Série/Ano</label>
+                <input type="text" value={batchSkillsGrade} onChange={e => setBatchSkillsGrade(e.target.value)} placeholder="Ex: 1ª SÉRIE" className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white" />
+              </div>
+              <div className="flex flex-col gap-2 flex-1">
+                <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Disciplina</label>
+                <input type="text" value={batchSkillsSubject} onChange={e => setBatchSkillsSubject(e.target.value)} placeholder="Ex: PROGRAMAÇÃO BACK-END" className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white" />
+              </div>
+            </div>
+            
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Habilidades (Cole do Excel)</label>
+              <textarea 
+                value={batchSkillsText} 
+                onChange={e => setBatchSkillsText(e.target.value)} 
+                rows={6}
+                placeholder="Cole a coluna do excel aqui. As duplicidades serão removidas."
+                className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors resize-y text-slate-800 dark:text-white"
+              />
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => { setIsBatchSkillsModalOpen(false); setIsDevAuth(false); }} className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">Cancelar</button>
+              <button onClick={handleBatchInsertSkills} className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-colors">Salvar Habilidades</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
