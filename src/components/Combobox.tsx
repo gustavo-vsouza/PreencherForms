@@ -4,11 +4,12 @@ interface ComboboxProps {
   options: string[];
   value: string;
   onChange: (val: string) => void;
+  onEnter?: (val: string) => void;
   placeholder?: string;
   id?: string;
 }
 
-export function Combobox({ options, value, onChange, placeholder = "Selecione ou digite...", id }: ComboboxProps) {
+export function Combobox({ options, value, onChange, onEnter, placeholder = "Selecione ou digite...", id }: ComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState(value);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -45,6 +46,15 @@ export function Combobox({ options, value, onChange, placeholder = "Selecione ou
           setIsOpen(true);
         }}
         onFocus={() => setIsOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (onEnter) {
+              onEnter(query);
+              setIsOpen(false);
+            }
+          }
+        }}
         autoComplete="off"
       />
       <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none text-slate-400">

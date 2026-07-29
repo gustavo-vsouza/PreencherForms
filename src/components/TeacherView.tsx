@@ -15,6 +15,7 @@ interface GlobalInfo {
 interface Student {
   name: string;
   unreachedSkill: string;
+  unreachedSkills: string[];
   actionPlan: string;
   score?: number;
 }
@@ -32,7 +33,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
     subject: ''
   });
 
-  const [students, setStudents] = useState<Student[]>([{ name: '', unreachedSkill: '', actionPlan: '' }]);
+  const [students, setStudents] = useState<Student[]>([{ name: '', unreachedSkill: '', unreachedSkills: [], actionPlan: '' }]);
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -129,6 +130,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
         const newStudents = selectedUploadedClass.students.map((s: any) => ({
           name: s.name,
           unreachedSkill: '',
+          unreachedSkills: [],
           actionPlan: '',
           score: s.scores[val] !== undefined ? s.scores[val] : undefined
         }));
@@ -143,7 +145,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
   };
 
   const addStudent = () => {
-    setStudents([...students, { name: '', unreachedSkill: '', actionPlan: '' }]);
+    setStudents([...students, { name: '', unreachedSkill: '', unreachedSkills: [], actionPlan: '' }]);
     setExpandedIndex(students.length);
   };
 
@@ -155,11 +157,11 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
     }
     
     let currentStudents = [...students];
-    if (currentStudents.length === 1 && !currentStudents[0].name && !currentStudents[0].unreachedSkill && !currentStudents[0].actionPlan) {
+    if (currentStudents.length === 1 && !currentStudents[0].name && currentStudents[0].unreachedSkills.length === 0 && !currentStudents[0].actionPlan) {
       currentStudents = [];
     }
 
-    const newStudents = names.map(name => ({ name, unreachedSkill: '', actionPlan: '' }));
+    const newStudents = names.map(name => ({ name, unreachedSkill: '', unreachedSkills: [], actionPlan: '' }));
     setStudents([...currentStudents, ...newStudents]);
     setIsBatchModalOpen(false);
     setBatchStudentNames('');
@@ -171,9 +173,25 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
     setStudents(newStudents);
   };
 
-  const updateStudent = (index: number, field: keyof Student, value: string) => {
+  const updateStudent = (index: number, field: keyof Student, value: any) => {
     const newStudents = [...students];
     newStudents[index] = { ...newStudents[index], [field]: value };
+    setStudents(newStudents);
+  };
+
+  const addSkillToStudent = (index: number, skill: string) => {
+    if (!skill.trim()) return;
+    const newStudents = [...students];
+    if (!newStudents[index].unreachedSkills.includes(skill)) {
+      newStudents[index].unreachedSkills = [...newStudents[index].unreachedSkills, skill];
+    }
+    newStudents[index].unreachedSkill = ''; // clear input
+    setStudents(newStudents);
+  };
+
+  const removeSkillFromStudent = (index: number, skillToRemove: string) => {
+    const newStudents = [...students];
+    newStudents[index].unreachedSkills = newStudents[index].unreachedSkills.filter(s => s !== skillToRemove);
     setStudents(newStudents);
   };
 
@@ -190,7 +208,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
       'Você ainda não gerou os relatórios desta turma. Tem certeza que deseja descartar os dados atuais e iniciar uma nova?',
       () => {
         setGlobalInfo({ teacherName: '', classRoom: '', subject: '' });
-        setStudents([{ name: '', unreachedSkill: '', actionPlan: '' }]);
+        setStudents([{ name: '', unreachedSkill: '', unreachedSkills: [], actionPlan: '' }]);
         setExpandedIndex(0);
       }
     );
@@ -209,8 +227,8 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
     
     for (let i = 0; i < visibleStudents.length; i++) {
       const s = visibleStudents[i];
-      if (!s.name.trim() || !s.unreachedSkill.trim() || !s.actionPlan.trim()) {
-        showToast(`Por favor, preencha todos os campos do aluno ${i + 1} (${s.name || 'Sem nome'}).`, "warning");
+      if (!s.name.trim() || s.unreachedSkills.length === 0 || !s.actionPlan.trim()) {
+        showToast(`Por favor, preencha todos os campos do aluno ${i + 1} (${s.name || 'Sem nome'}). Adicione pelo menos uma habilidade.`, "warning");
         return false;
       }
     }
@@ -247,75 +265,112 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
         const contentWidth = pageWidth - (margin * 2);
         let y = margin;
 
-        doc.setFillColor(37, 99, 235);
-        doc.rect(0, 0, pageWidth, 40, 'FD');
-
-        doc.setTextColor(255, 255, 255);
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(22);
-        doc.text("Plano de Ação", margin, 25);
-        
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        const dateStr = new Date().toLocaleDateString('pt-BR');
-        doc.text(`Data: ${dateStr}`, pageWidth - margin - 30, 25);
-
-        y = 55;
-
-        doc.setTextColor(0, 0, 0);
+        // Cabeçalho Institucional
         doc.setFont("helvetica", "bold");
         doc.setFontSize(14);
-        doc.text("Informações da Turma", margin, y);
+        doc.text("GOVERNO DO ESTADO DE SÃO PAULO", pageWidth / 2, y, { align: "center" });
+        y += 6;
+        doc.setFontSize(12);
+        doc.text("SECRETARIA DE ESTADO DA EDUCAÇÃO", pageWidth / 2, y, { align: "center" });
+        y += 6;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(schoolName.toUpperCase(), pageWidth / 2, y, { align: "center" });
+        y += 14;
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.text("RELATÓRIO INDIVIDUAL DE RECUPERAÇÃO CONTÍNUA", pageWidth / 2, y, { align: "center" });
+        y += 8;
+        
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.5);
+        doc.line(margin, y, pageWidth - margin, y);
         y += 10;
 
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Professor: ${globalInfo.teacherName}`, margin, y);
-        y += 7;
-        doc.text(`Turma: ${globalInfo.classRoom}`, margin, y);
-        y += 7;
-        doc.text(`Disciplina: ${globalInfo.subject}`, margin, y);
-        y += 15;
-
-        doc.setDrawColor(226, 232, 240);
-        doc.line(margin, y, pageWidth - margin, y);
-        y += 15;
-
-        doc.setFillColor(240, 249, 255);
-        doc.rect(margin, y, contentWidth, 12, 'FD');
-        
+        // Informações da Turma
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
+        doc.text("DADOS DA TURMA", margin, y);
+        y += 6;
+
+        doc.setFont("helvetica", "normal");
+        doc.text(`Professor(a): ${globalInfo.teacherName}`, margin, y);
+        const dateStr = new Date().toLocaleDateString('pt-BR');
+        doc.text(`Data: ${dateStr}`, pageWidth - margin, y, { align: "right" });
+        y += 6;
+        doc.text(`Turma: ${globalInfo.classRoom}`, margin, y);
+        y += 6;
+        doc.text(`Componente Curricular: ${globalInfo.subject}`, margin, y);
+        y += 10;
+
+        doc.line(margin, y, pageWidth - margin, y);
+        y += 10;
+
+        // Informações do Estudante
+        doc.setFont("helvetica", "bold");
+        doc.text("DADOS DO ESTUDANTE", margin, y);
+        y += 6;
         
+        doc.setFont("helvetica", "normal");
         const safeStudentName = student.name.replace(/[^\x20-\xFF]/g, '');
         const scoreText = student.score !== undefined ? ` (Acerto: ${(student.score * 100).toFixed(1)}%)` : '';
-        doc.text(`Nome do Estudante: ${safeStudentName}${scoreText}`, margin + 3, y + 8);
-        y += 20;
+        doc.text(`Nome: ${safeStudentName}${scoreText}`, margin, y);
+        y += 12;
 
+        // Blocos de Texto
         const addTextArea = (title: string, text: string) => {
           doc.setFont("helvetica", "bold");
           doc.text(title, margin, y);
-          y += 7;
+          y += 6;
           
           doc.setFont("helvetica", "normal");
           const splitText = doc.splitTextToSize(text, contentWidth - 6);
-          const blockHeight = splitText.length * 6 + 6;
+          const blockHeight = splitText.length * 5 + 6;
+
+          if (y + blockHeight > doc.internal.pageSize.getHeight() - 40) {
+            doc.addPage();
+            y = margin;
+          }
 
           doc.setDrawColor(200, 200, 200);
-          doc.setFillColor(255, 255, 255);
+          doc.setLineWidth(0.1);
+          doc.setFillColor(252, 252, 252);
           doc.rect(margin, y, contentWidth, blockHeight, 'FD');
-          doc.text(splitText, margin + 3, y + 6);
+          doc.text(splitText, margin + 3, y + 5);
           
           y += blockHeight + 10;
         };
 
-        addTextArea("Habilidade não alcançada:", student.unreachedSkill);
-        addTextArea("Plano de ação:", student.actionPlan);
+        addTextArea("Habilidades não alcançadas:", student.unreachedSkills.join('\n\n'));
+        addTextArea("Plano de Ação / Metodologia:", student.actionPlan);
 
+        // Assinaturas
+        if (y > doc.internal.pageSize.getHeight() - 50) {
+          doc.addPage();
+          y = margin + 20;
+        } else {
+          y = doc.internal.pageSize.getHeight() - 40;
+        }
+
+        doc.setDrawColor(0, 0, 0);
+        doc.setLineWidth(0.2);
+        
+        const signatureWidth = 60;
+        
+        // Assinatura Professor
+        doc.line(margin, y, margin + signatureWidth, y);
         doc.setFontSize(9);
+        doc.text("Assinatura do(a) Professor(a)", margin + (signatureWidth / 2), y + 5, { align: "center" });
+
+        // Assinatura Coordenação
+        doc.line(pageWidth - margin - signatureWidth, y, pageWidth - margin, y);
+        doc.text("Assinatura do(a) Coordenador(a)", pageWidth - margin - (signatureWidth / 2), y + 5, { align: "center" });
+
+        // Rodapé
+        doc.setFontSize(8);
         doc.setTextColor(150, 150, 150);
-        doc.text(`Documento gerado em ${dateStr} - ${schoolName}`, margin, 285);
+        doc.text(`Documento gerado em ${dateStr}`, pageWidth / 2, doc.internal.pageSize.getHeight() - 15, { align: "center" });
 
         const normalizedName = student.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const safeName = normalizedName.replace(/[^a-z0-9]/gi, '_').toLowerCase() || `aluno_${i+1}`;
@@ -330,7 +385,7 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
         subject: globalInfo.subject,
         students: visibleStudents.map(s => ({
           name: s.name,
-          unreachedSkill: s.unreachedSkill,
+          unreachedSkill: s.unreachedSkills.join('\n\n'),
           actionPlan: s.actionPlan,
           score: s.score || null
         })),
@@ -497,13 +552,38 @@ export function TeacherView({ schoolCode, schoolName, onLogout }: TeacherViewPro
                       />
                     </div>
                     <div className="flex flex-col gap-2 relative z-30">
-                      <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Habilidade não alcançada</label>
+                      <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Habilidades não alcançadas</label>
                       <Combobox
                         options={availableSkills.length > 0 ? availableSkills : ['Nenhuma habilidade filtrada encontrada']}
                         value={student.unreachedSkill}
-                        onChange={(val) => updateStudent(originalIndex, 'unreachedSkill', val === 'Nenhuma habilidade filtrada encontrada' ? '' : val)}
-                        placeholder="Selecione ou digite a habilidade..."
+                        onChange={(val) => {
+                          updateStudent(originalIndex, 'unreachedSkill', val);
+                          if (val !== 'Nenhuma habilidade filtrada encontrada' && val.trim()) {
+                            addSkillToStudent(originalIndex, val);
+                          }
+                        }}
+                        onEnter={(val) => {
+                          if (val !== 'Nenhuma habilidade filtrada encontrada' && val.trim()) {
+                            addSkillToStudent(originalIndex, val);
+                          }
+                        }}
+                        placeholder="Selecione ou digite a habilidade e aperte Enter..."
                       />
+                      {student.unreachedSkills.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {student.unreachedSkills.map((skill, sIdx) => (
+                            <div key={sIdx} className="flex items-center gap-2 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 px-3 py-1.5 rounded-lg border border-blue-200 dark:border-blue-500/20 text-sm">
+                              <span className="max-w-[200px] sm:max-w-md truncate" title={skill}>{skill}</span>
+                              <button 
+                                onClick={() => removeSkillFromStudent(originalIndex, skill)}
+                                className="text-blue-400 hover:text-red-500 transition-colors"
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col gap-2">
                       <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Plano de ação</label>
