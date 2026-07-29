@@ -57,6 +57,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const [batchSkillsGrade, setBatchSkillsGrade] = useState('');
   const [batchSkillsSubject, setBatchSkillsSubject] = useState('');
   const [batchSkillsText, setBatchSkillsText] = useState('');
+  const [parsedSkills, setParsedSkills] = useState<string[]>([]);
   const [batchUploadedClasses, setBatchUploadedClasses] = useState<any[]>([]);
   const { showToast, showConfirm } = useNotification();
 
@@ -205,15 +206,14 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   };
 
   const handleBatchInsertSkills = async () => {
-    if (!batchSkillsSchool || !batchSkillsGrade || !batchSkillsSubject || !batchSkillsText.trim()) {
-      showToast("Preencha todos os campos e insira habilidades.", "error");
+    if (!batchSkillsSchool || !batchSkillsGrade || !batchSkillsSubject || parsedSkills.length === 0) {
+      showToast("Preencha todos os campos e insira habilidades válidas.", "error");
       return;
     }
 
     try {
       setLoading(true);
-      const skillsArray = batchSkillsText.split('\n').map(s => s.trim()).filter(s => s.length > 0);
-      const uniqueSkills = [...new Set(skillsArray)];
+      const uniqueSkills = parsedSkills.map(s => s.trim()).filter(s => s.length > 0);
 
       await addDoc(collection(db, 'skills_data'), {
         schoolCode: batchSkillsSchool,
@@ -227,6 +227,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
       setIsBatchSkillsModalOpen(false);
       setIsDevAuth(false);
       setBatchSkillsText('');
+      setParsedSkills([]);
       setBatchSkillsSubject('');
       if (selectedSchoolSkills === batchSkillsSchool) fetchSkills(batchSkillsSchool);
     } catch (error) {
@@ -235,6 +236,13 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBatchTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setBatchSkillsText(e.target.value);
+    const skillsArray = e.target.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+    const uniqueSkills = [...new Set(skillsArray)];
+    setParsedSkills(uniqueSkills);
   };
 
   // --- Funções CRUD Escolas ---
@@ -1260,12 +1268,41 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
               <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Habilidades (Cole do Excel)</label>
               <textarea 
                 value={batchSkillsText} 
-                onChange={e => setBatchSkillsText(e.target.value)} 
-                rows={6}
+                onChange={handleBatchTextChange} 
+                rows={4}
                 placeholder="Cole a coluna do excel aqui. As duplicidades serão removidas."
                 className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors resize-y text-slate-800 dark:text-white"
               />
             </div>
+
+            {parsedSkills.length > 0 && (
+              <div className="flex flex-col gap-2 max-h-[30vh] overflow-y-auto pr-2 mt-2">
+                <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  Revisar e Editar ({parsedSkills.length})
+                </label>
+                {parsedSkills.map((skill, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input 
+                      type="text"
+                      value={skill}
+                      onChange={(e) => {
+                        const newSkills = [...parsedSkills];
+                        newSkills[index] = e.target.value;
+                        setParsedSkills(newSkills);
+                      }}
+                      className="flex-1 bg-white dark:bg-[#2a2640] border border-slate-200 dark:border-white/10 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-slate-800 dark:text-white"
+                    />
+                    <button 
+                      onClick={() => setParsedSkills(parsedSkills.filter((_, i) => i !== index))}
+                      className="p-2 text-slate-400 hover:text-red-500 bg-slate-50 dark:bg-black/20 rounded-lg transition-colors"
+                      title="Remover"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             
             <div className="flex justify-end gap-3 mt-4">
               <button onClick={() => { setIsBatchSkillsModalOpen(false); setIsDevAuth(false); }} className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">Cancelar</button>
