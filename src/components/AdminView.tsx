@@ -57,6 +57,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const [batchSkillsGrade, setBatchSkillsGrade] = useState('');
   const [batchSkillsSubject, setBatchSkillsSubject] = useState('');
   const [batchSkillsText, setBatchSkillsText] = useState('');
+  const [batchUploadedClasses, setBatchUploadedClasses] = useState<any[]>([]);
   const { showToast, showConfirm } = useNotification();
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -108,6 +109,20 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   useEffect(() => {
     if (activeTab === 'habilidades' && selectedSchoolSkills) fetchSkills(selectedSchoolSkills);
   }, [activeTab, selectedSchoolSkills]);
+
+  useEffect(() => {
+    if (isBatchSkillsModalOpen && batchSkillsSchool) {
+      const fetchBatchClasses = async () => {
+        try {
+          const snap = await getDocs(query(collection(db, 'uploaded_classes'), where('schoolCode', '==', batchSkillsSchool)));
+          setBatchUploadedClasses(snap.docs.map(d => d.data()));
+        } catch(e) {}
+      }
+      fetchBatchClasses();
+    } else {
+      setBatchUploadedClasses([]);
+    }
+  }, [isBatchSkillsModalOpen, batchSkillsSchool]);
 
   const fetchClasses = async (schoolCode: string) => {
     try {
@@ -1214,7 +1229,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
             
             <div className="flex flex-col gap-2">
               <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Escola (Código)</label>
-              <select value={batchSkillsSchool} onChange={e => setBatchSkillsSchool(e.target.value)} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white">
+              <select value={batchSkillsSchool} onChange={e => { setBatchSkillsSchool(e.target.value); setBatchSkillsGrade(''); setBatchSkillsSubject(''); }} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white">
                 <option value="">Selecione uma escola...</option>
                 {schools.map(s => <option key={s.id} value={s.code}>{s.name} ({s.code})</option>)}
               </select>
@@ -1223,11 +1238,21 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
             <div className="flex gap-4">
               <div className="flex flex-col gap-2 flex-1">
                 <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Série/Ano</label>
-                <input type="text" value={batchSkillsGrade} onChange={e => setBatchSkillsGrade(e.target.value)} placeholder="Ex: 1ª SÉRIE" className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white" />
+                <select value={batchSkillsGrade} onChange={e => { setBatchSkillsGrade(e.target.value); setBatchSkillsSubject(''); }} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white">
+                  <option value="">Selecione a série...</option>
+                  {Array.from(new Set(batchUploadedClasses.map(c => c.grade).filter(Boolean))).map(grade => (
+                    <option key={grade} value={grade}>{grade}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex flex-col gap-2 flex-1">
                 <label className="text-sm font-semibold text-slate-600 dark:text-slate-400">Disciplina</label>
-                <input type="text" value={batchSkillsSubject} onChange={e => setBatchSkillsSubject(e.target.value)} placeholder="Ex: PROGRAMAÇÃO BACK-END" className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white" />
+                <select value={batchSkillsSubject} onChange={e => setBatchSkillsSubject(e.target.value)} className="bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 outline-none focus:border-blue-500 transition-colors text-slate-800 dark:text-white">
+                  <option value="">Selecione a disciplina...</option>
+                  {Array.from(new Set(batchUploadedClasses.filter(c => !batchSkillsGrade || c.grade === batchSkillsGrade).flatMap(c => c.subjects || []).filter((s: string) => !s.includes('(%) Participação') && !s.includes('(%) Acertos')))).map(subject => (
+                    <option key={subject as string} value={subject as string}>{subject as string}</option>
+                  ))}
+                </select>
               </div>
             </div>
             
