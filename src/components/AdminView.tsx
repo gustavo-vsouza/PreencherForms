@@ -59,6 +59,7 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
   const [batchSkillsText, setBatchSkillsText] = useState('');
   const [parsedSkills, setParsedSkills] = useState<string[]>([]);
   const [batchUploadedClasses, setBatchUploadedClasses] = useState<any[]>([]);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const { showToast, showConfirm } = useNotification();
 
   const contentRef = useRef<HTMLDivElement>(null);
@@ -243,6 +244,242 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
     const skillsArray = e.target.value.split('\n').map(s => s.trim()).filter(s => s.length > 0);
     const uniqueSkills = [...new Set(skillsArray)];
     setParsedSkills(uniqueSkills);
+  };
+
+  // --- Funções de Geração de Relatórios PDF (Coordenador) ---
+  const generateReportPDF = async (report: any, schoolName: string, period: string) => {
+    const { jsPDF } = await import('jspdf');
+    const doc = new jsPDF();
+    const margin = 15;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    const addHeader = () => {
+      y = margin;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.setTextColor(0, 0, 0);
+      doc.text('GOVERNO DO ESTADO DE SÃO PAULO', pageWidth / 2, y, { align: 'center' });
+      y += 5.5;
+      doc.setFontSize(11);
+      doc.text('SECRETARIA DE ESTADO DA EDUCAÇÃO', pageWidth / 2, y, { align: 'center' });
+      y += 5.5;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(schoolName.toUpperCase(), pageWidth / 2, y, { align: 'center' });
+      y += 10;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('RELATÓRIO DE RECUPERAÇÃO CONTÍNUA', pageWidth / 2, y, { align: 'center' });
+      y += 7;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 8;
+    };
+
+    const addClassInfo = () => {
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(0, 0, 0);
+      doc.text('DADOS DA TURMA', margin, y);
+      y += 5;
+      doc.setFont('helvetica', 'normal');
+      const dateStr = new Date().toLocaleDateString('pt-BR');
+      doc.text(`Professor(a): ${report.teacherName}`, margin, y);
+      doc.text(`Data: ${dateStr}`, pageWidth - margin, y, { align: 'right' });
+      y += 5;
+      doc.text(`Turma: ${report.classRoom}`, margin, y);
+      doc.text(`Período: ${period}`, pageWidth - margin, y, { align: 'right' });
+      y += 5;
+      doc.text(`Componente Curricular: ${report.subject}`, margin, y);
+      y += 7;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.3);
+      doc.line(margin, y, pageWidth - margin, y);
+      y += 6;
+    };
+
+    addHeader();
+    addClassInfo();
+
+    // Table header
+    const colX = {
+      num: margin,
+      name: margin + 8,
+      skill: margin + 52,
+      plan: margin + contentWidth * 0.55,
+    };
+    const colW = {
+      skill: colX.plan - colX.skill - 2,
+      plan: pageWidth - margin - colX.plan,
+    };
+
+    const drawTableHeader = () => {
+      doc.setFillColor(41, 65, 122);
+      doc.rect(margin, y, contentWidth, 8, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Nº', colX.num + 1, y + 5.5);
+      doc.text('NOME DO ALUNO', colX.name + 1, y + 5.5);
+      doc.text('HABILIDADES NÃO ALCANÇADAS', colX.skill + 1, y + 5.5);
+      doc.text('PLANO DE AÇÃO', colX.plan + 1, y + 5.5);
+      y += 8;
+    };
+
+    drawTableHeader();
+
+    const students = report.students || [];
+    for (let i = 0; i < students.length; i++) {
+      const student = students[i];
+      const skillText = (student.unreachedSkill || '').replace(/[^\x20-\xFF]/g, '');
+      const planText = (student.actionPlan || '').replace(/[^\x20-\xFF]/g, '');
+      const studentName = (student.name || '').replace(/[^\x20-\xFF]/g, '');
+      const scoreText = student.score ? ` (${(student.score * 100).toFixed(0)}%)` : '';
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7);
+      doc.setTextColor(30, 30, 30);
+
+      const nameLines = doc.splitTextToSize(studentName + scoreText, 40);
+      const skillLines = doc.splitTextToSize(skillText, colW.skill - 2);
+      const planLines = doc.splitTextToSize(planText, colW.plan - 2);
+      const lineHeight = 3.5;
+      const maxLines = Math.max(nameLines.length, skillLines.length, planLines.length, 1);
+      const rowHeight = Math.max(maxLines * lineHeight + 4, 8);
+
+      // Check if row fits on current page
+      if (y + rowHeight > pageHeight - 20) {
+        // Footer on current page
+        doc.setFontSize(7);
+        doc.setTextColor(150, 150, 150);
+        doc.text(`${report.classRoom} - ${period} - ${report.subject}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        doc.addPage();
+        addHeader();
+        drawTableHeader();
+      }
+
+      // Alternating row background
+      if (i % 2 === 0) {
+        doc.setFillColor(245, 247, 250);
+        doc.rect(margin, y, contentWidth, rowHeight, 'F');
+      }
+
+      // Row borders
+      doc.setDrawColor(210, 210, 210);
+      doc.setLineWidth(0.1);
+      doc.rect(margin, y, contentWidth, rowHeight, 'S');
+
+      // Cell content
+      doc.setTextColor(30, 30, 30);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.text(String(i + 1), colX.num + 3, y + 5, { align: 'center' });
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(nameLines, colX.name + 1, y + 4);
+      doc.text(skillLines, colX.skill + 1, y + 4);
+      doc.text(planLines, colX.plan + 1, y + 4);
+
+      y += rowHeight;
+    }
+
+    // Footer
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    const dateFooter = new Date().toLocaleDateString('pt-BR');
+    doc.text(`Documento gerado em ${dateFooter} — ${report.classRoom} - ${period} - ${report.subject}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+    return doc.output('arraybuffer');
+  };
+
+  const handleDownloadClassReports = async (classRoom: string) => {
+    const schoolCode = selectedSchoolCode;
+    if (!schoolCode) return;
+
+    const classReports = reports.filter(r => r.schoolCode === schoolCode && r.classRoom === classRoom);
+    if (classReports.length === 0) {
+      showToast('Nenhum relatório encontrado para esta sala.', 'warning');
+      return;
+    }
+
+    setIsGeneratingReport(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      const schoolInfo = schools.find(s => s.code === schoolCode);
+      const schoolName = schoolInfo ? schoolInfo.name : 'Escola ' + schoolCode;
+      const classInfo = uploadedClasses.find(c => c.classRoom === classRoom);
+      const period = classInfo?.period || 'Sem Período';
+
+      for (const report of classReports) {
+        const pdfData = await generateReportPDF(report, schoolName, period);
+        const fileName = `${classRoom} - ${period} - ${report.subject}.pdf`;
+        zip.file(fileName, pdfData);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Relatórios - ${classRoom}.zip`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showToast(`${classReports.length} relatório(s) gerado(s) com sucesso!`, 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao gerar relatórios.', 'error');
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
+
+  const handleDownloadSchoolReports = async (schoolCode: string) => {
+    const schoolReports = reports.filter(r => r.schoolCode === schoolCode);
+    if (schoolReports.length === 0) {
+      showToast('Nenhum relatório encontrado para esta escola.', 'warning');
+      return;
+    }
+
+    setIsGeneratingReport(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      const schoolInfo = schools.find(s => s.code === schoolCode);
+      const schoolName = schoolInfo ? schoolInfo.name : 'Escola ' + schoolCode;
+
+      // Fetch all classes for this school to get period info
+      const classesSnap = await getDocs(query(collection(db, 'uploaded_classes'), where('schoolCode', '==', schoolCode)));
+      const allClasses = classesSnap.docs.map(d => d.data());
+
+      for (const report of schoolReports) {
+        const classInfo = allClasses.find(c => c.classRoom === report.classRoom);
+        const period = classInfo?.period || 'Sem Período';
+        const pdfData = await generateReportPDF(report, schoolName, period);
+        const folderName = `${report.classRoom}`;
+        const fileName = `${report.classRoom} - ${period} - ${report.subject}.pdf`;
+        zip.file(`${folderName}/${fileName}`, pdfData);
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = window.URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Relatórios - ${schoolName}.zip`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showToast(`${schoolReports.length} relatório(s) da escola gerado(s) com sucesso!`, 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Erro ao gerar relatórios da escola.', 'error');
+    } finally {
+      setIsGeneratingReport(false);
+    }
   };
 
   // --- Funções CRUD Escolas ---
@@ -650,8 +887,20 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                           <p className="text-sm font-medium text-slate-500 dark:text-slate-400 flex-1">Código: {code}</p>
                           <div className="mt-6 pt-4 border-t border-slate-100 dark:border-white/5 flex justify-between items-center">
                             <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-bold">{reportsForSchool.length} Relatórios</span>
-                            <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            <div className="flex items-center gap-2">
+                              {reportsForSchool.length > 0 && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleDownloadSchoolReports(code); }}
+                                  disabled={isGeneratingReport}
+                                  title="Baixar todos os relatórios da escola"
+                                  className="w-9 h-9 rounded-full bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-500 dark:text-indigo-400 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 transition-colors z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                </button>
+                              )}
+                              <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -709,8 +958,20 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
                             <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">{cls.classRoom}</h3>
                             <div className="flex justify-between items-center mt-4">
                               <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{reportsForClass.length} relatórios</p>
-                              <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-green-600 group-hover:text-white transition-colors">
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                              <div className="flex items-center gap-2">
+                                {reportsForClass.length > 0 && (
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDownloadClassReports(cls.classRoom); }}
+                                    disabled={isGeneratingReport}
+                                    title="Baixar relatórios desta sala"
+                                    className="w-9 h-9 rounded-full bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-500 dark:text-emerald-400 hover:bg-emerald-600 hover:text-white dark:hover:bg-emerald-600 transition-colors z-10 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                                  </button>
+                                )}
+                                <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-white/5 flex items-center justify-center text-slate-400 group-hover:bg-green-600 group-hover:text-white transition-colors">
+                                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1308,6 +1569,17 @@ export function AdminView({ onLogout }: { onLogout: () => void }) {
               <button onClick={() => { setIsBatchSkillsModalOpen(false); setIsDevAuth(false); }} className="px-5 py-2.5 rounded-xl text-slate-600 dark:text-slate-300 font-semibold hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">Cancelar</button>
               <button onClick={handleBatchInsertSkills} className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-500/30 transition-colors">Salvar Habilidades</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generating Report Modal */}
+      {isGeneratingReport && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/60 backdrop-blur-md transition-all duration-300">
+          <div className="bg-white dark:bg-[#1e1b2e] border border-slate-200 dark:border-white/10 rounded-3xl p-8 max-w-sm w-full shadow-2xl flex flex-col items-center animate-in fade-in zoom-in duration-200">
+            <div className="w-14 h-14 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-6"></div>
+            <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Gerando Relatórios</h3>
+            <p className="text-slate-500 dark:text-slate-400 font-medium text-center leading-relaxed">Preparando os PDFs institucionais, por favor aguarde...</p>
           </div>
         </div>
       )}
